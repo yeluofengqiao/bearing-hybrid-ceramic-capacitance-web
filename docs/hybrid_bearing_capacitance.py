@@ -128,6 +128,7 @@ class OperatingConditions:
     radial_load_n: float = 2000.0
     axial_load_n: float = 0.0
     temperature_c: float = 60.0
+    applied_voltage_v: float = 1.0
 
     def validate(self) -> None:
         if self.speed_rpm <= 0:
@@ -138,6 +139,8 @@ class OperatingConditions:
             raise ValueError("axial_load_n cannot be negative.")
         if self.temperature_c <= -273.15:
             raise ValueError("temperature_c must be above absolute zero.")
+        if self.applied_voltage_v < 0:
+            raise ValueError("applied_voltage_v cannot be negative.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +162,17 @@ class BallCapacitanceDetail:
     outer_relative_permittivity: float
     inner_lambda: float
     outer_lambda: float
+    inner_voltage_ratio: float
+    ceramic_voltage_ratio: float
+    outer_voltage_ratio: float
+    inner_voltage_v: float
+    ceramic_voltage_v: float
+    outer_voltage_v: float
+    inner_field_mv_m: float
+    ceramic_equivalent_thickness_um: float
+    ceramic_equivalent_field_mv_m: float
+    outer_field_mv_m: float
+    dominant_voltage_segment: str
 
     def as_row(self) -> list[str]:
         return [
@@ -171,6 +185,16 @@ class BallCapacitanceDetail:
             f"{self.ceramic_body_capacitance_pf:.5f}",
             f"{self.outer_contact_capacitance_pf:.5f}",
             f"{self.series_capacitance_pf:.5f}",
+            f"{self.inner_voltage_ratio:.4f}",
+            f"{self.ceramic_voltage_ratio:.4f}",
+            f"{self.outer_voltage_ratio:.4f}",
+            f"{self.inner_voltage_v:.5f}",
+            f"{self.ceramic_voltage_v:.5f}",
+            f"{self.outer_voltage_v:.5f}",
+            f"{self.inner_field_mv_m:.4f}",
+            f"{self.ceramic_equivalent_field_mv_m:.4f}",
+            f"{self.outer_field_mv_m:.4f}",
+            self.dominant_voltage_segment,
         ]
 
 
@@ -179,6 +203,7 @@ class CapacitanceResult:
     intrinsic_capacitance_pf: float
     effective_capacitance_pf: float
     background_capacitance_pf: float
+    applied_voltage_v: float
     operating_kinematic_viscosity_cst: float
     operating_dynamic_viscosity_pa_s: float
     radial_displacement_um: float
@@ -193,6 +218,13 @@ class CapacitanceResult:
     inner_contact_sum_pf: float
     ceramic_body_sum_pf: float
     outer_contact_sum_pf: float
+    mean_inner_voltage_ratio: float
+    mean_ceramic_voltage_ratio: float
+    mean_outer_voltage_ratio: float
+    max_inner_field_mv_m: float
+    max_ceramic_equivalent_field_mv_m: float
+    max_outer_field_mv_m: float
+    dominant_voltage_segment: str
     solver_converged: bool
     details: list[BallCapacitanceDetail]
 
@@ -219,6 +251,15 @@ def dynamic_viscosity_from_kinematic_cst(nu_cst: float, density_kg_m3: float) ->
     if nu_cst <= 0 or density_kg_m3 <= 0:
         raise ValueError("Both viscosity and density must be positive.")
     return nu_cst * 1e-6 * density_kg_m3
+
+
+def dominant_segment_name(inner_ratio: float, ceramic_ratio: float, outer_ratio: float) -> str:
+    segments = {
+        "Inner Oil Film": inner_ratio,
+        "Ceramic Ball": ceramic_ratio,
+        "Outer Oil Film": outer_ratio,
+    }
+    return max(segments, key=segments.get)
 
 
 class HybridBearingCapacitanceModel:
@@ -361,6 +402,7 @@ class HybridBearingCapacitanceModel:
                 intrinsic_capacitance_pf=0.0,
                 effective_capacitance_pf=self.lubricant.background_capacitance_pf,
                 background_capacitance_pf=self.lubricant.background_capacitance_pf,
+                applied_voltage_v=conditions.applied_voltage_v,
                 operating_kinematic_viscosity_cst=astm_d341_kinematic_viscosity_cst(
                     self.lubricant.viscosity_40_cst,
                     self.lubricant.viscosity_100_cst,
@@ -379,6 +421,13 @@ class HybridBearingCapacitanceModel:
                 inner_contact_sum_pf=0.0,
                 ceramic_body_sum_pf=0.0,
                 outer_contact_sum_pf=0.0,
+                mean_inner_voltage_ratio=0.0,
+                mean_ceramic_voltage_ratio=0.0,
+                mean_outer_voltage_ratio=0.0,
+                max_inner_field_mv_m=0.0,
+                max_ceramic_equivalent_field_mv_m=0.0,
+                max_outer_field_mv_m=0.0,
+                dominant_voltage_segment="No loaded path",
                 solver_converged=True,
                 details=[],
             )
@@ -446,6 +495,17 @@ class HybridBearingCapacitanceModel:
                         outer_relative_permittivity=0.0,
                         inner_lambda=0.0,
                         outer_lambda=0.0,
+                        inner_voltage_ratio=0.0,
+                        ceramic_voltage_ratio=0.0,
+                        outer_voltage_ratio=0.0,
+                        inner_voltage_v=0.0,
+                        ceramic_voltage_v=0.0,
+                        outer_voltage_v=0.0,
+                        inner_field_mv_m=0.0,
+                        ceramic_equivalent_thickness_um=0.0,
+                        ceramic_equivalent_field_mv_m=0.0,
+                        outer_field_mv_m=0.0,
+                        dominant_voltage_segment="Inactive",
                     )
                 )
                 continue
@@ -507,6 +567,29 @@ class HybridBearingCapacitanceModel:
 
             inner_lambda = (inner_film_mm * 1000.0) / self.geometry.composite_roughness_um
             outer_lambda = (outer_film_mm * 1000.0) / self.geometry.composite_roughness_um
+            inner_voltage_ratio = 0.0 if inner_cap_pf <= 0.0 else series_cap_pf / inner_cap_pf
+            ceramic_voltage_ratio = 0.0 if ceramic_cap_pf <= 0.0 else series_cap_pf / ceramic_cap_pf
+            outer_voltage_ratio = 0.0 if outer_cap_pf <= 0.0 else series_cap_pf / outer_cap_pf
+
+            inner_voltage_v = conditions.applied_voltage_v * inner_voltage_ratio
+            ceramic_voltage_v = conditions.applied_voltage_v * ceramic_voltage_ratio
+            outer_voltage_v = conditions.applied_voltage_v * outer_voltage_ratio
+
+            inner_field_mv_m = 0.0 if inner_film_m <= 0.0 else inner_voltage_v / inner_film_m / 1e6
+            outer_field_mv_m = 0.0 if outer_film_m <= 0.0 else outer_voltage_v / outer_film_m / 1e6
+            ceramic_equivalent_thickness_m = 0.0
+            if effective_area_m2 > 0.0 and ceramic_cap_pf > 0.0:
+                ceramic_equivalent_thickness_m = (
+                    EPSILON_0 * self.geometry.ceramic_relative_permittivity * effective_area_m2 / (ceramic_cap_pf * 1e-12)
+                )
+            ceramic_equivalent_field_mv_m = (
+                0.0 if ceramic_equivalent_thickness_m <= 0.0 else ceramic_voltage_v / ceramic_equivalent_thickness_m / 1e6
+            )
+            dominant_voltage_segment = dominant_segment_name(
+                inner_voltage_ratio,
+                ceramic_voltage_ratio,
+                outer_voltage_ratio,
+            )
 
             intrinsic_total_pf += series_cap_pf
             inner_sum_pf += inner_cap_pf
@@ -532,16 +615,42 @@ class HybridBearingCapacitanceModel:
                     outer_relative_permittivity=outer_eps_r,
                     inner_lambda=inner_lambda,
                     outer_lambda=outer_lambda,
+                    inner_voltage_ratio=inner_voltage_ratio,
+                    ceramic_voltage_ratio=ceramic_voltage_ratio,
+                    outer_voltage_ratio=outer_voltage_ratio,
+                    inner_voltage_v=inner_voltage_v,
+                    ceramic_voltage_v=ceramic_voltage_v,
+                    outer_voltage_v=outer_voltage_v,
+                    inner_field_mv_m=inner_field_mv_m,
+                    ceramic_equivalent_thickness_um=ceramic_equivalent_thickness_m * 1e6,
+                    ceramic_equivalent_field_mv_m=ceramic_equivalent_field_mv_m,
+                    outer_field_mv_m=outer_field_mv_m,
+                    dominant_voltage_segment=dominant_voltage_segment,
                 )
             )
 
         active_details = [detail for detail in details if detail.load_n > 0.0]
         effective_total_pf = intrinsic_total_pf + self.lubricant.background_capacitance_pf
+        mean_inner_voltage_ratio = (
+            sum(detail.inner_voltage_ratio for detail in active_details) / len(active_details) if active_details else 0.0
+        )
+        mean_ceramic_voltage_ratio = (
+            sum(detail.ceramic_voltage_ratio for detail in active_details) / len(active_details) if active_details else 0.0
+        )
+        mean_outer_voltage_ratio = (
+            sum(detail.outer_voltage_ratio for detail in active_details) / len(active_details) if active_details else 0.0
+        )
+        dominant_voltage_segment = dominant_segment_name(
+            mean_inner_voltage_ratio,
+            mean_ceramic_voltage_ratio,
+            mean_outer_voltage_ratio,
+        ) if active_details else "No loaded path"
 
         return CapacitanceResult(
             intrinsic_capacitance_pf=intrinsic_total_pf,
             effective_capacitance_pf=effective_total_pf,
             background_capacitance_pf=self.lubricant.background_capacitance_pf,
+            applied_voltage_v=conditions.applied_voltage_v,
             operating_kinematic_viscosity_cst=operating_kinematic_viscosity_cst,
             operating_dynamic_viscosity_pa_s=operating_dynamic_viscosity_pa_s,
             radial_displacement_um=radial_um,
@@ -556,6 +665,16 @@ class HybridBearingCapacitanceModel:
             inner_contact_sum_pf=inner_sum_pf,
             ceramic_body_sum_pf=ceramic_sum_pf,
             outer_contact_sum_pf=outer_sum_pf,
+            mean_inner_voltage_ratio=mean_inner_voltage_ratio,
+            mean_ceramic_voltage_ratio=mean_ceramic_voltage_ratio,
+            mean_outer_voltage_ratio=mean_outer_voltage_ratio,
+            max_inner_field_mv_m=max((detail.inner_field_mv_m for detail in active_details), default=0.0),
+            max_ceramic_equivalent_field_mv_m=max(
+                (detail.ceramic_equivalent_field_mv_m for detail in active_details),
+                default=0.0,
+            ),
+            max_outer_field_mv_m=max((detail.outer_field_mv_m for detail in active_details), default=0.0),
+            dominant_voltage_segment=dominant_voltage_segment,
             solver_converged=solver_converged,
             details=details,
         )

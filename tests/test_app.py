@@ -18,6 +18,7 @@ class HybridBearingCapacitanceWebTests(unittest.TestCase):
             "radial_load_n": "2000",
             "axial_load_n": "0",
             "temperature_c": "60",
+            "applied_voltage_v": "1",
             "ball_diameter_mm": "11.906",
             "pitch_diameter_mm": "60",
             "rolling_elements": "9",
@@ -45,6 +46,7 @@ class HybridBearingCapacitanceWebTests(unittest.TestCase):
         self.assertIn("混合陶瓷球轴承电容计算器".encode("utf-8"), response.data)
         self.assertIn("轴承本体电容".encode("utf-8"), response.data)
         self.assertIn("单球明细".encode("utf-8"), response.data)
+        self.assertIn("主承担段".encode("utf-8"), response.data)
 
     def test_download_route_returns_csv(self) -> None:
         response = self.client.get("/download.csv", query_string=self.query)

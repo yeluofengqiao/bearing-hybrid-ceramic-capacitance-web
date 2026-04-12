@@ -42,6 +42,17 @@ class HybridBearingCapacitanceModelTests(unittest.TestCase):
         self.assertGreater(hot.intrinsic_capacitance_pf, cool.intrinsic_capacitance_pf)
         self.assertLess(hot.operating_kinematic_viscosity_cst, cool.operating_kinematic_viscosity_cst)
 
+    def test_ceramic_segment_takes_largest_voltage_share(self) -> None:
+        result = self.model.calculate(OperatingConditions(applied_voltage_v=1.0))
+        loaded = [detail for detail in result.details if detail.load_n > 0.0]
+
+        self.assertTrue(loaded)
+        for detail in loaded:
+            self.assertGreater(detail.ceramic_voltage_ratio, detail.inner_voltage_ratio)
+            self.assertGreater(detail.ceramic_voltage_ratio, detail.outer_voltage_ratio)
+            self.assertEqual(detail.dominant_voltage_segment, "Ceramic Ball")
+        self.assertEqual(result.dominant_voltage_segment, "Ceramic Ball")
+
 
 if __name__ == "__main__":
     unittest.main()

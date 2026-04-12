@@ -38,6 +38,7 @@ def calculate_from_json(raw_text):
         radial_load_n=float(payload["radial_load_n"]),
         axial_load_n=float(payload["axial_load_n"]),
         temperature_c=float(payload["temperature_c"]),
+        applied_voltage_v=float(payload["applied_voltage_v"]),
     )
 
     result = HybridBearingCapacitanceModel(geometry=geometry, lubricant=lubricant).calculate(conditions)
@@ -46,6 +47,7 @@ def calculate_from_json(raw_text):
         "intrinsic_capacitance_pf": result.intrinsic_capacitance_pf,
         "effective_capacitance_pf": result.effective_capacitance_pf,
         "background_capacitance_pf": result.background_capacitance_pf,
+        "applied_voltage_v": result.applied_voltage_v,
         "min_inner_film_thickness_um": result.min_inner_film_thickness_um,
         "min_outer_film_thickness_um": result.min_outer_film_thickness_um,
         "loaded_ball_count": result.loaded_ball_count,
@@ -62,6 +64,13 @@ def calculate_from_json(raw_text):
             if loaded_details else 0.0
         ),
         "max_series_ball_pf": max((detail.series_capacitance_pf for detail in loaded_details), default=0.0),
+        "mean_inner_voltage_ratio": result.mean_inner_voltage_ratio,
+        "mean_ceramic_voltage_ratio": result.mean_ceramic_voltage_ratio,
+        "mean_outer_voltage_ratio": result.mean_outer_voltage_ratio,
+        "max_inner_field_mv_m": result.max_inner_field_mv_m,
+        "max_ceramic_equivalent_field_mv_m": result.max_ceramic_equivalent_field_mv_m,
+        "max_outer_field_mv_m": result.max_outer_field_mv_m,
+        "dominant_voltage_segment": result.dominant_voltage_segment,
         "solver_converged": result.solver_converged,
     }
 
@@ -76,6 +85,16 @@ def calculate_from_json(raw_text):
             "ceramic_body_capacitance_pf": detail.ceramic_body_capacitance_pf,
             "outer_contact_capacitance_pf": detail.outer_contact_capacitance_pf,
             "series_capacitance_pf": detail.series_capacitance_pf,
+            "inner_voltage_ratio": detail.inner_voltage_ratio,
+            "ceramic_voltage_ratio": detail.ceramic_voltage_ratio,
+            "outer_voltage_ratio": detail.outer_voltage_ratio,
+            "inner_voltage_v": detail.inner_voltage_v,
+            "ceramic_voltage_v": detail.ceramic_voltage_v,
+            "outer_voltage_v": detail.outer_voltage_v,
+            "inner_field_mv_m": detail.inner_field_mv_m,
+            "ceramic_equivalent_field_mv_m": detail.ceramic_equivalent_field_mv_m,
+            "outer_field_mv_m": detail.outer_field_mv_m,
+            "dominant_voltage_segment": detail.dominant_voltage_segment,
         }
         for detail in loaded_details
     ]
@@ -147,6 +166,12 @@ function renderContributionList(summary) {
     ["外圈油膜原始和", `${format(summary.outer_contact_sum_pf)} pF`],
     ["平均单球串联电容", `${format(summary.mean_series_ball_pf, 5)} pF`],
     ["最大单球串联电容", `${format(summary.max_series_ball_pf, 5)} pF`],
+    ["平均内圈油膜分压", `${format(summary.mean_inner_voltage_ratio * 100, 2)}%`],
+    ["平均陶瓷球分压", `${format(summary.mean_ceramic_voltage_ratio * 100, 2)}%`],
+    ["平均外圈油膜分压", `${format(summary.mean_outer_voltage_ratio * 100, 2)}%`],
+    ["内圈油膜最大场强", `${format(summary.max_inner_field_mv_m, 3)} MV/m`],
+    ["陶瓷球等效最大场强", `${format(summary.max_ceramic_equivalent_field_mv_m, 3)} MV/m`],
+    ["外圈油膜最大场强", `${format(summary.max_outer_field_mv_m, 3)} MV/m`],
     ["求解器状态", summary.solver_converged ? "收敛" : "未完全收敛，结果仅供参考"],
   ];
   const host = document.getElementById("contribution-list");
@@ -169,6 +194,13 @@ function renderDetails(details) {
         <td>${format(detail.ceramic_body_capacitance_pf, 5)} pF</td>
         <td>${format(detail.outer_contact_capacitance_pf, 5)} pF</td>
         <td><strong>${format(detail.series_capacitance_pf, 5)} pF</strong></td>
+        <td>${format(detail.inner_voltage_v, 4)} V / ${format(detail.inner_voltage_ratio * 100, 1)}%</td>
+        <td>${format(detail.ceramic_voltage_v, 4)} V / ${format(detail.ceramic_voltage_ratio * 100, 1)}%</td>
+        <td>${format(detail.outer_voltage_v, 4)} V / ${format(detail.outer_voltage_ratio * 100, 1)}%</td>
+        <td>${format(detail.inner_field_mv_m, 3)} MV/m</td>
+        <td>${format(detail.ceramic_equivalent_field_mv_m, 3)} MV/m</td>
+        <td>${format(detail.outer_field_mv_m, 3)} MV/m</td>
+        <td><strong>${detail.dominant_voltage_segment}</strong></td>
       </tr>
     `)
     .join("");
@@ -179,12 +211,14 @@ function renderResults(data) {
   document.getElementById("intrinsic-capacitance").textContent = `${format(summary.intrinsic_capacitance_pf)} pF`;
   document.getElementById("effective-capacitance").textContent = `${format(summary.effective_capacitance_pf)} pF`;
   document.getElementById("background-note").textContent = `总电容 = 本体电容 + 背景电容 ${format(summary.background_capacitance_pf, 3)} pF`;
+  document.getElementById("applied-voltage").textContent = `${format(summary.applied_voltage_v, 3)} V`;
   document.getElementById("min-film-thickness").textContent = `${format(summary.min_inner_film_thickness_um)} / ${format(summary.min_outer_film_thickness_um)} μm`;
   document.getElementById("loaded-ball-count").textContent = `${summary.loaded_ball_count} / ${summary.rolling_elements}`;
   document.getElementById("loaded-ratio").textContent = `加载区占比 ${format(summary.loaded_ratio_pct, 1)}%`;
   document.getElementById("operating-viscosity").textContent = `${format(summary.operating_kinematic_viscosity_cst, 2)} cSt`;
   document.getElementById("dynamic-viscosity").textContent = `动力粘度 ${format(summary.operating_dynamic_viscosity_pa_s, 5)} Pa·s`;
   document.getElementById("equivalent-modulus").textContent = `${format(summary.equivalent_modulus_gpa, 2)} GPa`;
+  document.getElementById("dominant-segment").textContent = summary.dominant_voltage_segment;
   renderContributionList(summary);
   renderDetails(details);
   document.getElementById("result-block").classList.remove("hidden");

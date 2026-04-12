@@ -25,6 +25,7 @@ INPUT_GROUPS = [
             {"name": "radial_load_n", "label": "径向载荷 Fr", "unit": "N", "type": "float", "default": "2000"},
             {"name": "axial_load_n", "label": "轴向载荷 Fa", "unit": "N", "type": "float", "default": "0"},
             {"name": "temperature_c", "label": "润滑剂温度", "unit": "°C", "type": "float", "default": "60"},
+            {"name": "applied_voltage_v", "label": "施加总电压", "unit": "V", "type": "float", "default": "1"},
         ],
     },
     {
@@ -70,6 +71,16 @@ CSV_HEADERS = [
     "Ceramic Body (pF)",
     "Outer Contact (pF)",
     "Series Total (pF)",
+    "Inner Voltage Ratio",
+    "Ceramic Voltage Ratio",
+    "Outer Voltage Ratio",
+    "Inner Voltage (V)",
+    "Ceramic Voltage (V)",
+    "Outer Voltage (V)",
+    "Inner Field (MV/m)",
+    "Ceramic Eq Field (MV/m)",
+    "Outer Field (MV/m)",
+    "Dominant Segment",
 ]
 
 
@@ -155,6 +166,7 @@ def build_conditions(values: dict[str, str]) -> OperatingConditions:
         radial_load_n=float(values["radial_load_n"]),
         axial_load_n=float(values["axial_load_n"]),
         temperature_c=float(values["temperature_c"]),
+        applied_voltage_v=float(values["applied_voltage_v"]),
     )
 
 
@@ -187,6 +199,7 @@ def build_page_context(form_values: dict[str, str]) -> dict[str, Any]:
                     if loaded_details
                     else 0.0
                 ),
+                "dominant_voltage_segment": result.dominant_voltage_segment,
             },
         }
     except ValueError as error:

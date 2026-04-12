@@ -85,6 +85,11 @@
               <p>总电容 = 本体电容 + 背景电容 {{ "%.3f"|format(result.background_capacitance_pf) }} pF。</p>
             </article>
             <article class="metric-card">
+              <span>施加总电压</span>
+              <strong>{{ "%.3f"|format(result.applied_voltage_v) }} V</strong>
+              <p>分压、电场和主承担段都按这个总电压计算。</p>
+            </article>
+            <article class="metric-card">
               <span>最小油膜厚度</span>
               <strong>{{ "%.4f"|format(result.min_inner_film_thickness_um) }} / {{ "%.4f"|format(result.min_outer_film_thickness_um) }} μm</strong>
               <p>按内圈 / 外圈接触分别显示。</p>
@@ -103,6 +108,11 @@
               <span>等效模量</span>
               <strong>{{ "%.2f"|format(summary.equivalent_modulus_gpa) }} GPa</strong>
               <p>按钢圈 / 陶瓷球组合的 Hertz 接触等效模量。</p>
+            </article>
+            <article class="metric-card">
+              <span>主承担段</span>
+              <strong>{{ summary.dominant_voltage_segment }}</strong>
+              <p>按加载滚动体路径的平均分压比例判定。</p>
             </article>
           </div>
 
@@ -134,6 +144,30 @@
                   <dt>求解器状态</dt>
                   <dd>{{ "收敛" if result.solver_converged else "未完全收敛，结果仅供参考" }}</dd>
                 </div>
+                <div>
+                  <dt>平均内圈油膜分压</dt>
+                  <dd>{{ "%.2f"|format(result.mean_inner_voltage_ratio * 100) }}%</dd>
+                </div>
+                <div>
+                  <dt>平均陶瓷球分压</dt>
+                  <dd>{{ "%.2f"|format(result.mean_ceramic_voltage_ratio * 100) }}%</dd>
+                </div>
+                <div>
+                  <dt>平均外圈油膜分压</dt>
+                  <dd>{{ "%.2f"|format(result.mean_outer_voltage_ratio * 100) }}%</dd>
+                </div>
+                <div>
+                  <dt>内圈油膜最大场强</dt>
+                  <dd>{{ "%.3f"|format(result.max_inner_field_mv_m) }} MV/m</dd>
+                </div>
+                <div>
+                  <dt>陶瓷球等效最大场强</dt>
+                  <dd>{{ "%.3f"|format(result.max_ceramic_equivalent_field_mv_m) }} MV/m</dd>
+                </div>
+                <div>
+                  <dt>外圈油膜最大场强</dt>
+                  <dd>{{ "%.3f"|format(result.max_outer_field_mv_m) }} MV/m</dd>
+                </div>
               </dl>
               <p class="small-note">
                 上面三项“原始和”不是最终总电容，因为每个滚动体通路内部采用串联计算。
@@ -147,6 +181,8 @@
                 <li>膜厚用 Hamrock-Dowson 点接触中心膜厚近似，转速与温度通过粘度和卷吸速度进入模型。</li>
                 <li>润滑剂介电常数用 Clausius-Mossotti 关系结合温度和压力修正。</li>
                 <li>陶瓷球本体用扩展电场的 spreading capacitance 近似，而不是简单平行板假设。</li>
+                <li>分压按串联电容关系计算，电容越小的段分得的电压越大。</li>
+                <li>陶瓷球场强是“等效场强”，基于等效厚度，不是球内局部真实场分布反演值。</li>
               </ul>
             </article>
           </div>
@@ -169,6 +205,13 @@
                     <th>陶瓷球本体</th>
                     <th>外圈油膜</th>
                     <th>串联等效</th>
+                    <th>内圈分压</th>
+                    <th>陶瓷球分压</th>
+                    <th>外圈分压</th>
+                    <th>内圈场强</th>
+                    <th>陶瓷等效场强</th>
+                    <th>外圈场强</th>
+                    <th>主承担段</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -183,6 +226,13 @@
                     <td>{{ "%.5f"|format(detail.ceramic_body_capacitance_pf) }} pF</td>
                     <td>{{ "%.5f"|format(detail.outer_contact_capacitance_pf) }} pF</td>
                     <td><strong>{{ "%.5f"|format(detail.series_capacitance_pf) }} pF</strong></td>
+                    <td>{{ "%.4f"|format(detail.inner_voltage_v) }} V / {{ "%.1f"|format(detail.inner_voltage_ratio * 100) }}%</td>
+                    <td>{{ "%.4f"|format(detail.ceramic_voltage_v) }} V / {{ "%.1f"|format(detail.ceramic_voltage_ratio * 100) }}%</td>
+                    <td>{{ "%.4f"|format(detail.outer_voltage_v) }} V / {{ "%.1f"|format(detail.outer_voltage_ratio * 100) }}%</td>
+                    <td>{{ "%.3f"|format(detail.inner_field_mv_m) }} MV/m</td>
+                    <td>{{ "%.3f"|format(detail.ceramic_equivalent_field_mv_m) }} MV/m</td>
+                    <td>{{ "%.3f"|format(detail.outer_field_mv_m) }} MV/m</td>
+                    <td><strong>{{ detail.dominant_voltage_segment }}</strong></td>
                   </tr>
                   {% endfor %}
                 </tbody>

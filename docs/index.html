@@ -43,6 +43,7 @@
               <label class="field"><span class="field-label">径向载荷 Fr</span><div class="field-input-wrap"><input name="radial_load_n" value="2000"><em>N</em></div></label>
               <label class="field"><span class="field-label">轴向载荷 Fa</span><div class="field-input-wrap"><input name="axial_load_n" value="0"><em>N</em></div></label>
               <label class="field"><span class="field-label">润滑剂温度</span><div class="field-input-wrap"><input name="temperature_c" value="60"><em>°C</em></div></label>
+              <label class="field"><span class="field-label">施加总电压</span><div class="field-input-wrap"><input name="applied_voltage_v" value="1"><em>V</em></div></label>
             </div>
           </section>
 
@@ -96,10 +97,12 @@
             <div class="metric-grid">
               <article class="metric-card accent"><span>轴承本体电容</span><strong id="intrinsic-capacitance">-</strong><p>只统计滚动体通路的串联等效值。</p></article>
               <article class="metric-card"><span>测量等效总电容</span><strong id="effective-capacitance">-</strong><p id="background-note">-</p></article>
+              <article class="metric-card"><span>施加总电压</span><strong id="applied-voltage">-</strong><p>分压与电场都按这个总电压计算。</p></article>
               <article class="metric-card"><span>最小油膜厚度</span><strong id="min-film-thickness">-</strong><p>按内圈 / 外圈分别显示。</p></article>
               <article class="metric-card"><span>加载滚动体数量</span><strong id="loaded-ball-count">-</strong><p id="loaded-ratio">-</p></article>
               <article class="metric-card"><span>运行粘度</span><strong id="operating-viscosity">-</strong><p id="dynamic-viscosity">-</p></article>
               <article class="metric-card"><span>等效模量</span><strong id="equivalent-modulus">-</strong><p>按钢圈 / 陶瓷球组合计算。</p></article>
+              <article class="metric-card"><span>主承担段</span><strong id="dominant-segment">-</strong><p>按加载滚动体路径的平均分压比例判定。</p></article>
             </div>
 
             <div class="analysis-grid">
@@ -116,6 +119,8 @@
                   <li>膜厚采用 Hamrock-Dowson 点接触中心膜厚近似。</li>
                   <li>润滑剂介电常数使用 Clausius-Mossotti 关系并按温度、压力修正。</li>
                   <li>陶瓷球本体使用 spreading capacitance 近似，因此对速度和温度的敏感性会比全钢轴承更温和。</li>
+                  <li>分压按串联电容关系计算，电容越小的段分得的电压越大。</li>
+                  <li>陶瓷球场强显示为等效场强，不等于球体内部真实局部场分布。</li>
                 </ul>
               </article>
             </div>
@@ -138,6 +143,13 @@
                       <th>陶瓷球本体</th>
                       <th>外圈油膜</th>
                       <th>串联等效</th>
+                      <th>内圈分压</th>
+                      <th>陶瓷球分压</th>
+                      <th>外圈分压</th>
+                      <th>内圈场强</th>
+                      <th>陶瓷等效场强</th>
+                      <th>外圈场强</th>
+                      <th>主承担段</th>
                     </tr>
                   </thead>
                   <tbody id="detail-body"></tbody>
