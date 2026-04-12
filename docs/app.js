@@ -4,7 +4,7 @@ const TEXT = {
   "zh-CN": {
     pageTitle: "混合陶瓷球轴承电容分析平台",
     pageIntro:
-      "统一计算混合陶瓷球轴承的本体电容、寄生并联网络、分压、电场、扫频阻抗、扫参趋势和风险等级。",
+      "统一计算混合陶瓷球轴承的本体电容、寄生并联网络、分压、电场和风险等级，并保留更轻量的页面交互。",
     runtimeCardLabel: "运行环境",
     runtimeCardValueFlask: "Flask Runtime",
     runtimeCardValuePages: "GitHub Pages + Pyodide",
@@ -160,7 +160,7 @@ const TEXT = {
   "en-US": {
     pageTitle: "Hybrid Ceramic Bearing Capacitance Studio",
     pageIntro:
-      "Unified analysis of intrinsic bearing capacitance, explicit parasitic branches, voltage split, electric field, impedance sweep, operating sweeps, and risk level.",
+      "Unified analysis of intrinsic bearing capacitance, explicit parasitic branches, voltage split, electric field, and risk level with a lighter UI path.",
     runtimeCardLabel: "Runtime",
     runtimeCardValueFlask: "Flask Runtime",
     runtimeCardValuePages: "GitHub Pages + Pyodide",
@@ -731,15 +731,6 @@ function renderStaticText() {
   $("voltage-chart-title").textContent = t("voltageChartTitle");
   $("field-chart-eyebrow").textContent = t("fieldChartEyebrow");
   $("field-chart-title").textContent = t("fieldChartTitle");
-  $("frequency-chart-eyebrow").textContent = t("frequencyChartEyebrow");
-  $("frequency-chart-title").textContent = t("frequencyChartTitle");
-  $("sweep-chart-eyebrow").textContent = t("sweepChartEyebrow");
-  $("sweep-chart-title").textContent = t("sweepChartTitle");
-  $("sweep-variable-label").textContent = t("sweepVariableLabel");
-  $("sweep-metric-label").textContent = t("sweepMetricLabel");
-  $("sensitivity-chart-eyebrow").textContent = t("sensitivityChartEyebrow");
-  $("sensitivity-chart-title").textContent = t("sensitivityChartTitle");
-  $("sensitivity-metric-label").textContent = t("sensitivityMetricLabel");
   $("details-eyebrow").textContent = t("detailsEyebrow");
   $("details-title").textContent = t("detailsTitle");
   $("details-note").textContent = t("detailsNote");
@@ -749,15 +740,6 @@ function renderStaticText() {
   $("case-b-note").textContent = t("caseBNote");
   $("footer-version").textContent = `${t("footerVersionPrefix")}${runtime.modelVersion || state.config.version}`;
   $("footer-note").textContent = runtime.modelNote || t("modelNoteFallback");
-  $("sweep-variable-select").options[0].textContent = t("sweepVariableSpeed");
-  $("sweep-variable-select").options[1].textContent = t("sweepVariableTemperature");
-  $("sweep-variable-select").options[2].textContent = t("sweepVariableRadialLoad");
-  $("sweep-metric-select").options[0].textContent = t("metricTotalCapacitance");
-  $("sweep-metric-select").options[1].textContent = t("metricMaxField");
-  $("sweep-metric-select").options[2].textContent = t("metricRiskNumeric");
-  $("sensitivity-metric-select").options[0].textContent = t("sensitivityMetricCap");
-  $("sensitivity-metric-select").options[1].textContent = t("sensitivityMetricField");
-  $("sensitivity-metric-select").options[2].textContent = t("sensitivityMetricRisk");
   $("export-case-select").options[0].textContent = t("csvCaseA");
   $("export-case-select").options[1].textContent = t("csvCaseB");
 
@@ -888,7 +870,7 @@ function toggleMode(mode) {
   $("explanation-grid").innerHTML = "";
   $("detail-sections").innerHTML = "";
   $("comparison-panel").classList.add("hidden");
-  ["voltage-chart", "field-chart", "frequency-chart", "sweep-chart", "sensitivity-chart"].forEach(destroyChart);
+  ["voltage-chart", "field-chart"].forEach(destroyChart);
   calculateAndRender();
 }
 
@@ -1580,9 +1562,6 @@ function sensitivityChartConfig(result) {
 function renderCharts() {
   createChart("voltage-chart", voltageChartConfig(state.result));
   createChart("field-chart", fieldChartConfig(state.result));
-  createChart("frequency-chart", frequencyChartConfig(state.result));
-  createChart("sweep-chart", sweepChartConfig(state.result));
-  createChart("sensitivity-chart", sensitivityChartConfig(state.result));
 }
 
 function renderSingleResult(result) {
@@ -1769,7 +1748,7 @@ async function exportPdf() {
       );
     }
 
-    const chartIds = ["voltage-chart", "field-chart", "frequency-chart", "sweep-chart", "sensitivity-chart"];
+    const chartIds = ["voltage-chart", "field-chart"];
     chartIds.forEach((chartId, index) => {
       const canvas = $(chartId);
       if (!canvas) {
@@ -1894,26 +1873,6 @@ function bindEvents() {
     state.exportCase = event.target.value;
   });
 
-  $("sweep-variable-select").addEventListener("change", (event) => {
-    state.sweepVariable = event.target.value;
-    if (state.result) {
-      renderCharts();
-    }
-  });
-
-  $("sweep-metric-select").addEventListener("change", (event) => {
-    state.sweepMetric = event.target.value;
-    if (state.result) {
-      renderCharts();
-    }
-  });
-
-  $("sensitivity-metric-select").addEventListener("change", (event) => {
-    state.sensitivityMetric = event.target.value;
-    if (state.result) {
-      renderCharts();
-    }
-  });
 }
 
 async function initialize() {
@@ -1927,13 +1886,9 @@ async function initialize() {
     $("field-unit-select").value = state.units.field;
     $("load-unit-select").value = state.units.load;
     $("export-case-select").value = state.exportCase;
-    $("sweep-variable-select").value = state.sweepVariable;
-    $("sweep-metric-select").value = state.sweepMetric;
-    $("sensitivity-metric-select").value = state.sensitivityMetric;
     renderStaticText();
     renderForms();
     setStatus(t("statusReady"));
-    await calculateAndRender();
   } catch (error) {
     showDiagnostic(error.kind || "model", error.message || String(error));
     setStatus(t("statusFailed"));

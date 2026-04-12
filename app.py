@@ -131,10 +131,10 @@ def create_app() -> Flask:
             if mode == "compare":
                 case_a_payload = data.get("case_a_payload") or {}
                 case_b_payload = data.get("case_b_payload") or {}
-                result = compare_case_payloads(case_a_payload, case_b_payload)
+                result = compare_case_payloads(case_a_payload, case_b_payload, include_extended=False)
             else:
                 payload = data.get("payload") or data
-                result = analyze_case_payload(payload)
+                result = analyze_case_payload(payload, include_extended=False)
             return jsonify(result)
         except ValueError as error:
             return jsonify({"error": str(error), "error_type": "validation"}), 400
@@ -154,7 +154,7 @@ def create_app() -> Flask:
                 payload = extract_case_payload(request.args)
                 filename = "hybrid_bearing_capacitance.csv"
 
-            result = analyze_case_payload(payload)
+            result = analyze_case_payload(payload, include_extended=False)
             csv_text = details_to_csv(result["details"])
             return Response(
                 csv_text,

@@ -29,7 +29,7 @@
           <p class="eyebrow" id="runtime-badge">Hybrid Ceramic Bearing Capacitance</p>
           <h1 id="page-title">混合陶瓷球轴承电容分析平台</h1>
           <p class="intro" id="page-intro">
-            统一计算混合陶瓷球轴承的本体电容、寄生并联网络、分压、电场、扫频阻抗、扫参趋势和风险等级。
+            统一计算混合陶瓷球轴承的本体电容、寄生并联网络、分压、电场和风险等级，并保留更轻量的页面交互。
           </p>
           <div class="hero-actions">
             <button type="button" id="calculate-button">计算</button>
@@ -196,64 +196,6 @@
                 </div>
               </div>
               <canvas id="field-chart" height="260"></canvas>
-            </section>
-
-            <section class="panel chart-panel wide-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow mini" id="frequency-chart-eyebrow">Impedance</p>
-                  <h2 id="frequency-chart-title">扫频阻抗</h2>
-                </div>
-              </div>
-              <canvas id="frequency-chart" height="280"></canvas>
-            </section>
-
-            <section class="panel chart-panel wide-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow mini" id="sweep-chart-eyebrow">Sweep</p>
-                  <h2 id="sweep-chart-title">扫参趋势</h2>
-                </div>
-                <div class="chart-toolbar">
-                  <label>
-                    <span id="sweep-variable-label">变量</span>
-                    <select id="sweep-variable-select">
-                      <option value="speed">转速</option>
-                      <option value="temperature">温度</option>
-                      <option value="radial_load">径向载荷</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span id="sweep-metric-label">指标</span>
-                    <select id="sweep-metric-select">
-                      <option value="effective_capacitance_pf">总电容</option>
-                      <option value="max_oil_film_field_mv_m">最大油膜场强</option>
-                      <option value="risk_level_numeric">风险等级</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <canvas id="sweep-chart" height="280"></canvas>
-            </section>
-
-            <section class="panel chart-panel wide-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow mini" id="sensitivity-chart-eyebrow">Sensitivity</p>
-                  <h2 id="sensitivity-chart-title">敏感性排序</h2>
-                </div>
-                <div class="chart-toolbar">
-                  <label>
-                    <span id="sensitivity-metric-label">排序指标</span>
-                    <select id="sensitivity-metric-select">
-                      <option value="effective_capacitance_pf">总电容</option>
-                      <option value="max_oil_film_field">最大油膜场强</option>
-                      <option value="risk_level">风险等级</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <canvas id="sensitivity-chart" height="320"></canvas>
             </section>
           </div>
 

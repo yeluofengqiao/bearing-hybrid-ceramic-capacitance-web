@@ -27,6 +27,7 @@ class HybridBearingCapacitanceWebTests(unittest.TestCase):
         self.assertIn(b'id="compare-mode-button"', response.data)
         self.assertIn(b'id="voltage-chart"', response.data)
         self.assertIn(b'id="comparison-panel"', response.data)
+        self.assertNotIn(b'id="frequency-chart"', response.data)
         self.assertIn(b"/assets/app.js", response.data)
 
     def test_config_endpoint_exposes_presets_and_groups(self) -> None:
@@ -37,7 +38,7 @@ class HybridBearingCapacitanceWebTests(unittest.TestCase):
         self.assertIn("defaults", data)
         self.assertIn("groups", data)
         self.assertIn("6208", data["presets"])
-        self.assertGreaterEqual(len(data["groups"]), 5)
+        self.assertEqual(len(data["groups"]), 4)
 
     def test_single_case_api_returns_new_result_structure(self) -> None:
         response = self.client.post("/api/calculate", json={"mode": "single", "payload": self.single_payload})
@@ -45,10 +46,10 @@ class HybridBearingCapacitanceWebTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertIn("summary", data)
-        self.assertIn("frequency_sweep", data)
-        self.assertIn("condition_sweeps", data)
-        self.assertIn("sensitivity", data)
         self.assertIn("details", data)
+        self.assertNotIn("frequency_sweep", data)
+        self.assertNotIn("condition_sweeps", data)
+        self.assertNotIn("sensitivity", data)
         self.assertGreater(data["summary"]["effective_capacitance_pf"], 0.0)
 
     def test_compare_api_returns_case_delta_block(self) -> None:

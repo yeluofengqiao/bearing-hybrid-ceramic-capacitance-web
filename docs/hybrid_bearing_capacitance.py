@@ -823,8 +823,27 @@ class HybridBearingCapacitanceModel:
         conditions: OperatingConditions,
         parasitics: ParasiticCapacitances,
         sweep_settings: SweepSettings,
+        include_extended: bool = True,
     ) -> dict[str, Any]:
         base = self._single_case(conditions, parasitics)
+        result = {
+            "version": MODEL_VERSION,
+            "inputs": {
+                "geometry": asdict(self.geometry),
+                "lubricant": asdict(self.lubricant),
+                "conditions": asdict(conditions),
+                "parasitics": asdict(parasitics),
+                "sweep_settings": asdict(sweep_settings),
+            },
+            "summary": base["summary"],
+            "details": base["details"],
+            "explanations": self._explanation_flags(base["summary"]),
+            "model_note": "Pure capacitive impedance model without leakage resistance or conductive oil-film branches.",
+        }
+
+        if not include_extended:
+            return result
+
         sweep_settings.validate()
         base_guess = tuple(base["equilibrium_guess_um"])
 
@@ -852,27 +871,14 @@ class HybridBearingCapacitanceModel:
         )
         sensitivity = self.sensitivity_analysis(conditions, parasitics, sweep_settings)
 
-        return {
-            "version": MODEL_VERSION,
-            "inputs": {
-                "geometry": asdict(self.geometry),
-                "lubricant": asdict(self.lubricant),
-                "conditions": asdict(conditions),
-                "parasitics": asdict(parasitics),
-                "sweep_settings": asdict(sweep_settings),
-            },
-            "summary": base["summary"],
-            "details": base["details"],
-            "frequency_sweep": frequency_sweep,
-            "condition_sweeps": {
-                "speed": speed_sweep,
-                "temperature": temperature_sweep,
-                "radial_load": radial_load_sweep,
-            },
-            "sensitivity": sensitivity,
-            "explanations": self._explanation_flags(base["summary"]),
-            "model_note": "Pure capacitive impedance model without leakage resistance or conductive oil-film branches.",
+        result["frequency_sweep"] = frequency_sweep
+        result["condition_sweeps"] = {
+            "speed": speed_sweep,
+            "temperature": temperature_sweep,
+            "radial_load": radial_load_sweep,
         }
+        result["sensitivity"] = sensitivity
+        return result
 
     @staticmethod
     def frequency_sweep(effective_capacitance_pf: float, sweep_settings: SweepSettings) -> dict[str, list[float]]:
@@ -1063,7 +1069,10 @@ class HybridBearingCapacitanceModel:
         }
 
 
-def build_case_inputs(payload: Mapping[str, Any]) -> tuple[BearingGeometry, LubricantProperties, ParasiticCapacitances, OperatingConditions, SweepSettings]:
+def build_case_inputs(
+    payload: Mapping[str, Any],
+    include_extended: bool = True,
+) -> tuple[BearingGeometry, LubricantProperties, ParasiticCapacitances, OperatingConditions, SweepSettings]:
     merged = apply_bearing_preset(dict(payload))
     temperature_legacy = merged.get("temperature_c")
     inner_ring_temp_c = merged.get("inner_ring_temp_c", temperature_legacy if temperature_legacy is not None else 60.0)
@@ -1129,19 +1138,24 @@ def build_case_inputs(payload: Mapping[str, Any]) -> tuple[BearingGeometry, Lubr
     lubricant.validate()
     parasitics.validate()
     conditions.validate()
-    sweep_settings.validate()
+    if include_extended:
+        sweep_settings.validate()
     return geometry, lubricant, parasitics, conditions, sweep_settings
 
 
-def analyze_case_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    geometry, lubricant, parasitics, conditions, sweep_settings = build_case_inputs(payload)
+def analyze_case_payload(payload: Mapping[str, Any], include_extended: bool = True) -> dict[str, Any]:
+    geometry, lubricant, parasitics, conditions, sweep_settings = build_case_inputs(payload, include_extended=include_extended)
     model = HybridBearingCapacitanceModel(geometry=geometry, lubricant=lubricant)
-    return model.analyze_case(conditions, parasitics, sweep_settings)
+    return model.analyze_case(conditions, parasitics, sweep_settings, include_extended=include_extended)
 
 
-def compare_case_payloads(case_a_payload: Mapping[str, Any], case_b_payload: Mapping[str, Any]) -> dict[str, Any]:
-    case_a = analyze_case_payload(case_a_payload)
-    case_b = analyze_case_payload(case_b_payload)
+def compare_case_payloads(
+    case_a_payload: Mapping[str, Any],
+    case_b_payload: Mapping[str, Any],
+    include_extended: bool = True,
+) -> dict[str, Any]:
+    case_a = analyze_case_payload(case_a_payload, include_extended=include_extended)
+    case_b = analyze_case_payload(case_b_payload, include_extended=include_extended)
     summary_a = case_a["summary"]
     summary_b = case_b["summary"]
     return {

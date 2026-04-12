@@ -24,6 +24,15 @@ class HybridBearingCapacitanceModelTests(unittest.TestCase):
         self.assertEqual(len(result["condition_sweeps"]["radial_load"]["x"]), 41)
         self.assertIn("effective_capacitance_pf", result["sensitivity"])
 
+    def test_lightweight_case_omits_sweeps_and_sensitivity(self) -> None:
+        result = analyze_case_payload({"bearing_code": "6208"}, include_extended=False)
+
+        self.assertIn("summary", result)
+        self.assertIn("details", result)
+        self.assertNotIn("frequency_sweep", result)
+        self.assertNotIn("condition_sweeps", result)
+        self.assertNotIn("sensitivity", result)
+
     def test_explicit_parasitics_increase_total_capacitance(self) -> None:
         baseline = analyze_case_payload(
             {
