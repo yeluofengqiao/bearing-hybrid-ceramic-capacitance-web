@@ -198,8 +198,9 @@ async function runCalculation(event) {
     const runtime = await ensureRuntime();
     setStatus("计算中...");
     const payload = collectPayload();
-    const calculator = runtime.globals.get("calculate_from_json");
-    const resultText = calculator(JSON.stringify(payload));
+    runtime.globals.set("payload_json", JSON.stringify(payload));
+    const resultText = await runtime.runPythonAsync("calculate_from_json(payload_json)");
+    runtime.globals.delete("payload_json");
     const data = JSON.parse(resultText);
     renderResults(data);
     setStatus("计算完成");
