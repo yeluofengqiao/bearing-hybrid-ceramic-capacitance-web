@@ -75,6 +75,20 @@ python3 -m unittest discover -s tests
 
 Render 连接到 GitHub 后会自动读取 `render.yaml` 创建服务。
 
+## GitHub Pages 公开网页
+
+仓库中的 `docs/` 目录提供了一个静态公开页面。
+
+- 页面通过 `Pyodide` 在浏览器里直接运行同一套 Python 模型
+- 不依赖单独的 Flask 服务
+- 启用 GitHub Pages 后可直接公开访问
+
+如果 Pages 已启用，公开链接通常为：
+
+```text
+https://yeluofengqiao.github.io/bearing-hybrid-ceramic-capacitance-web/
+```
+
 ## 说明
 
 混合陶瓷球轴承里，陶瓷球本体常常会成为串联链路中的主要限流元件，因此：
