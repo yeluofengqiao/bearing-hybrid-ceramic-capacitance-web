@@ -56,7 +56,6 @@ select {
 .hero,
 .layout,
 .result-grid,
-.chart-grid,
 .summary-grid,
 .comparison-grid,
 .utility-grid,
@@ -77,10 +76,6 @@ select {
 }
 
 .result-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.chart-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -270,20 +265,17 @@ button:disabled {
   border: 1px solid var(--line);
 }
 
-.utility-field,
-.chart-toolbar label {
+.utility-field {
   display: grid;
   gap: 6px;
 }
 
-.utility-field span,
-.chart-toolbar span {
+.utility-field span {
   font-size: 0.82rem;
   color: var(--muted);
 }
 
-.utility-field select,
-.chart-toolbar select {
+.utility-field select {
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.78);
@@ -361,8 +353,7 @@ button:disabled {
 
 .field-card input:focus,
 .field-card select:focus,
-.utility-field select:focus,
-.chart-toolbar select:focus {
+.utility-field select:focus {
   outline: 2px solid rgba(15, 109, 117, 0.16);
   border-color: rgba(15, 109, 117, 0.35);
 }
@@ -436,21 +427,6 @@ button:disabled {
   line-height: 1.72;
 }
 
-.chart-panel canvas {
-  width: 100%;
-}
-
-.wide-panel {
-  grid-column: 1 / -1;
-}
-
-.chart-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
 .detail-subpanel + .detail-subpanel {
   margin-top: 16px;
 }
@@ -514,7 +490,6 @@ tbody td {
   .layout,
   .hero,
   .result-grid,
-  .chart-grid,
   .summary-grid,
   .comparison-grid {
     grid-template-columns: 1fr;
@@ -523,10 +498,6 @@ tbody td {
   .summary-note {
     text-align: left;
     max-width: none;
-  }
-
-  .wide-panel {
-    grid-column: auto;
   }
 }
 
@@ -552,9 +523,5 @@ tbody td {
   .case-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .chart-toolbar {
-    justify-content: flex-start;
   }
 }
