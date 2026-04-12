@@ -25,9 +25,8 @@ class HybridBearingCapacitanceWebTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("混合陶瓷球轴承电容分析平台".encode("utf-8"), response.data)
         self.assertIn(b'id="compare-mode-button"', response.data)
-        self.assertIn(b'id="voltage-chart"', response.data)
+        self.assertNotIn(b'id="voltage-chart"', response.data)
         self.assertIn(b'id="comparison-panel"', response.data)
-        self.assertNotIn(b'id="frequency-chart"', response.data)
         self.assertIn(b"/assets/app.js", response.data)
 
     def test_config_endpoint_exposes_presets_and_groups(self) -> None:

@@ -8,7 +8,6 @@
     <script>
       window.APP_RUNTIME = {{ runtime|tojson }};
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
     <script src="/assets/app.js" defer></script>
   </head>
@@ -164,28 +163,6 @@
                 </div>
               </div>
               <dl class="key-values" id="key-values"></dl>
-            </section>
-          </div>
-
-          <div class="chart-grid">
-            <section class="panel chart-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow mini" id="voltage-chart-eyebrow">Voltage</p>
-                  <h2 id="voltage-chart-title">三段分压</h2>
-                </div>
-              </div>
-              <canvas id="voltage-chart" height="220"></canvas>
-            </section>
-
-            <section class="panel chart-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow mini" id="field-chart-eyebrow">Field</p>
-                  <h2 id="field-chart-title">三段场强</h2>
-                </div>
-              </div>
-              <canvas id="field-chart" height="220"></canvas>
             </section>
           </div>
 
