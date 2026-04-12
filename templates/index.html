@@ -3,243 +3,269 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>混合陶瓷球轴承电容计算器</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>混合陶瓷球轴承电容分析平台</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+    <script>
+      window.APP_RUNTIME = {{ runtime|tojson }};
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
+    <script src="/assets/app.js" defer></script>
   </head>
   <body>
     <main class="page-shell">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Hybrid Ceramic Bearing Capacitance</p>
-          <h1>混合陶瓷球轴承电容计算器</h1>
-          <p class="intro">
-            这个网页把混合陶瓷轴承等效成“内圈油膜 + 陶瓷球本体 + 外圈油膜”的串联电容网络，
-            同时把转速、温度、载荷对膜厚与接触面积的影响算进去。默认值按 <strong>6208</strong> 近似参数预填：
-            <strong>PCD 60 mm</strong>、<strong>球径 11.906 mm</strong>。
+          <p class="eyebrow" id="runtime-badge">Hybrid Ceramic Bearing Capacitance</p>
+          <h1 id="page-title">混合陶瓷球轴承电容分析平台</h1>
+          <p class="intro" id="page-intro">
+            统一计算混合陶瓷球轴承的本体电容、寄生并联网络、分压、电场、扫频阻抗、扫参趋势和风险等级。
           </p>
+          <div class="hero-actions">
+            <button type="button" id="calculate-button">计算</button>
+            <button type="button" class="secondary-button" id="share-button">复制分享链接</button>
+            <button type="button" class="secondary-button" id="pdf-button">导出 PDF</button>
+            <button type="button" class="secondary-button" id="csv-button">导出单球 CSV</button>
+            <span id="status-pill" class="status-pill">准备就绪</span>
+          </div>
         </div>
+
         <div class="hero-note">
           <div class="note-card">
-            <span>模型核心</span>
-            <strong>Hertz + Hamrock-Dowson + 串联电容网络</strong>
+            <span id="runtime-card-label">运行环境</span>
+            <strong id="runtime-card-value">Flask Runtime</strong>
           </div>
           <div class="note-card">
-            <span>结果口径</span>
-            <strong>本体电容 / 含背景电容的测量等效值</strong>
+            <span id="model-card-label">模型版本</span>
+            <strong id="model-card-value">{{ runtime.modelVersion }}</strong>
+          </div>
+          <div class="note-card">
+            <span id="note-card-label">模型说明</span>
+            <strong id="model-note">{{ runtime.modelNote }}</strong>
           </div>
         </div>
       </section>
 
       <section class="layout">
-        <form class="panel input-panel" method="get" action="{{ url_for('index') }}">
-          {% for group in input_groups %}
-          <section class="input-group">
-            <div class="group-header">
-              <h2>{{ group.title }}</h2>
-              <p>{{ group.description }}</p>
+        <aside class="panel control-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow mini" id="controls-eyebrow">Study Setup</p>
+              <h2 id="controls-title">工况设置</h2>
             </div>
-            <div class="field-grid">
-              {% for field in group.fields %}
-              <label class="field">
-                <span class="field-label">{{ field.label }}</span>
-                <div class="field-input-wrap">
-                  <input
-                    type="text"
-                    name="{{ field.name }}"
-                    value="{{ form_values[field.name] }}"
-                    autocomplete="off"
-                    inputmode="{% if field.type in ['float', 'int'] %}decimal{% else %}text{% endif %}"
-                  >
-                  <em>{{ field.unit }}</em>
-                </div>
-              </label>
-              {% endfor %}
+            <div class="mode-toggle" role="tablist" aria-label="mode toggle">
+              <button type="button" class="mode-button active" id="single-mode-button">单工况</button>
+              <button type="button" class="mode-button" id="compare-mode-button">Case A / B</button>
             </div>
+          </div>
+
+          <section class="utility-grid">
+            <label class="utility-field">
+              <span id="language-label">语言</span>
+              <select id="language-select">
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+              </select>
+            </label>
+            <label class="utility-field">
+              <span id="capacitance-unit-label">电容单位</span>
+              <select id="capacitance-unit-select">
+                <option value="pF">pF</option>
+                <option value="nF">nF</option>
+              </select>
+            </label>
+            <label class="utility-field">
+              <span id="field-unit-label">场强单位</span>
+              <select id="field-unit-select">
+                <option value="MV/m">MV/m</option>
+                <option value="V/um">V/μm</option>
+              </select>
+            </label>
+            <label class="utility-field">
+              <span id="load-unit-label">载荷单位</span>
+              <select id="load-unit-select">
+                <option value="N">N</option>
+                <option value="kN">kN</option>
+              </select>
+            </label>
+            <label class="utility-field hidden" id="export-case-field">
+              <span id="export-case-label">CSV 导出对象</span>
+              <select id="export-case-select">
+                <option value="a">Case A</option>
+                <option value="b">Case B</option>
+              </select>
+            </label>
           </section>
-          {% endfor %}
 
-          <div class="actions">
-            <button type="submit">计算电容</button>
-            {% if not error %}
-            <a class="secondary-action" href="{{ url_for('download_csv', **form_values) }}">导出单球结果 CSV</a>
-            {% endif %}
-          </div>
-        </form>
+          <div class="form-stack">
+            <section class="case-panel" id="case-a-panel" data-case="a">
+              <div class="case-header">
+                <h3 id="case-a-title">Case A</h3>
+                <p id="case-a-note">默认用于当前工况分析。</p>
+              </div>
+              <div id="case-a-groups"></div>
+            </section>
 
-        <section class="panel results-panel">
-          {% if error %}
-          <div class="error-box">
-            <h2>输入有误</h2>
-            <p>{{ error }}</p>
+            <section class="case-panel hidden" id="case-b-panel" data-case="b">
+              <div class="case-header">
+                <h3 id="case-b-title">Case B</h3>
+                <p id="case-b-note">用于并列比较第二组工况。</p>
+              </div>
+              <div id="case-b-groups"></div>
+            </section>
           </div>
-          {% elif result %}
-          <div class="metric-grid">
-            <article class="metric-card accent">
-              <span>轴承本体电容</span>
-              <strong>{{ "%.4f"|format(result.intrinsic_capacitance_pf) }} pF</strong>
-              <p>只统计滚动体通路的串联等效值。</p>
-            </article>
-            <article class="metric-card">
-              <span>测量等效总电容</span>
-              <strong>{{ "%.4f"|format(result.effective_capacitance_pf) }} pF</strong>
-              <p>总电容 = 本体电容 + 背景电容 {{ "%.3f"|format(result.background_capacitance_pf) }} pF。</p>
-            </article>
-            <article class="metric-card">
-              <span>施加总电压</span>
-              <strong>{{ "%.3f"|format(result.applied_voltage_v) }} V</strong>
-              <p>分压、电场和主承担段都按这个总电压计算。</p>
-            </article>
-            <article class="metric-card">
-              <span>最小油膜厚度</span>
-              <strong>{{ "%.4f"|format(result.min_inner_film_thickness_um) }} / {{ "%.4f"|format(result.min_outer_film_thickness_um) }} μm</strong>
-              <p>按内圈 / 外圈接触分别显示。</p>
-            </article>
-            <article class="metric-card">
-              <span>加载滚动体数量</span>
-              <strong>{{ result.loaded_ball_count }} / {{ geometry.rolling_elements }}</strong>
-              <p>加载区占比 {{ "%.1f"|format(summary.loaded_ratio_pct) }}%。</p>
-            </article>
-            <article class="metric-card">
-              <span>运行粘度</span>
-              <strong>{{ "%.2f"|format(result.operating_kinematic_viscosity_cst) }} cSt</strong>
-              <p>对应动力粘度 {{ "%.5f"|format(result.operating_dynamic_viscosity_pa_s) }} Pa·s。</p>
-            </article>
-            <article class="metric-card">
-              <span>等效模量</span>
-              <strong>{{ "%.2f"|format(summary.equivalent_modulus_gpa) }} GPa</strong>
-              <p>按钢圈 / 陶瓷球组合的 Hertz 接触等效模量。</p>
-            </article>
-            <article class="metric-card">
-              <span>主承担段</span>
-              <strong>{{ summary.dominant_voltage_segment }}</strong>
-              <p>按加载滚动体路径的平均分压比例判定。</p>
-            </article>
-          </div>
+        </aside>
 
-          <div class="analysis-grid">
-            <article class="subpanel">
-              <h2>贡献概览</h2>
-              <dl class="key-values">
-                <div>
-                  <dt>内圈油膜原始和</dt>
-                  <dd>{{ "%.4f"|format(result.inner_contact_sum_pf) }} pF</dd>
-                </div>
-                <div>
-                  <dt>陶瓷球本体原始和</dt>
-                  <dd>{{ "%.4f"|format(result.ceramic_body_sum_pf) }} pF</dd>
-                </div>
-                <div>
-                  <dt>外圈油膜原始和</dt>
-                  <dd>{{ "%.4f"|format(result.outer_contact_sum_pf) }} pF</dd>
-                </div>
-                <div>
-                  <dt>平均单球串联电容</dt>
-                  <dd>{{ "%.5f"|format(summary.mean_series_ball_pf) }} pF</dd>
-                </div>
-                <div>
-                  <dt>最大单球串联电容</dt>
-                  <dd>{{ "%.5f"|format(summary.max_series_ball_pf) }} pF</dd>
-                </div>
-                <div>
-                  <dt>求解器状态</dt>
-                  <dd>{{ "收敛" if result.solver_converged else "未完全收敛，结果仅供参考" }}</dd>
-                </div>
-                <div>
-                  <dt>平均内圈油膜分压</dt>
-                  <dd>{{ "%.2f"|format(result.mean_inner_voltage_ratio * 100) }}%</dd>
-                </div>
-                <div>
-                  <dt>平均陶瓷球分压</dt>
-                  <dd>{{ "%.2f"|format(result.mean_ceramic_voltage_ratio * 100) }}%</dd>
-                </div>
-                <div>
-                  <dt>平均外圈油膜分压</dt>
-                  <dd>{{ "%.2f"|format(result.mean_outer_voltage_ratio * 100) }}%</dd>
-                </div>
-                <div>
-                  <dt>内圈油膜最大场强</dt>
-                  <dd>{{ "%.3f"|format(result.max_inner_field_mv_m) }} MV/m</dd>
-                </div>
-                <div>
-                  <dt>陶瓷球等效最大场强</dt>
-                  <dd>{{ "%.3f"|format(result.max_ceramic_equivalent_field_mv_m) }} MV/m</dd>
-                </div>
-                <div>
-                  <dt>外圈油膜最大场强</dt>
-                  <dd>{{ "%.3f"|format(result.max_outer_field_mv_m) }} MV/m</dd>
-                </div>
-              </dl>
-              <p class="small-note">
-                上面三项“原始和”不是最终总电容，因为每个滚动体通路内部采用串联计算。
+        <section class="results-stack">
+          <div id="error-box" class="error-box hidden"></div>
+
+          <section class="panel summary-panel" id="results-block">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow mini" id="summary-eyebrow">Results</p>
+                <h2 id="summary-title">关键结果</h2>
+              </div>
+              <p class="summary-note" id="summary-note">
+                同时展示本体电容、寄生并联、电场、阻抗和风险判断。
               </p>
-            </article>
+            </div>
+            <div class="summary-grid" id="summary-grid"></div>
+          </section>
 
-            <article class="subpanel">
-              <h2>模型说明</h2>
-              <ul class="explain-list">
-                <li>载荷分配采用深沟球轴承的准静态位移平衡，求每颗球的载荷。</li>
-                <li>膜厚用 Hamrock-Dowson 点接触中心膜厚近似，转速与温度通过粘度和卷吸速度进入模型。</li>
-                <li>润滑剂介电常数用 Clausius-Mossotti 关系结合温度和压力修正。</li>
-                <li>陶瓷球本体用扩展电场的 spreading capacitance 近似，而不是简单平行板假设。</li>
-                <li>分压按串联电容关系计算，电容越小的段分得的电压越大。</li>
-                <li>陶瓷球场强是“等效场强”，基于等效厚度，不是球内局部真实场分布反演值。</li>
-              </ul>
-            </article>
+          <section class="panel hidden" id="comparison-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow mini" id="comparison-eyebrow">Compare</p>
+                <h2 id="comparison-title">Case A / B 差异</h2>
+              </div>
+              <p class="summary-note" id="comparison-note">
+                展示等效总电容、油膜场强和风险等级差值。
+              </p>
+            </div>
+            <div class="summary-grid comparison-grid" id="comparison-grid"></div>
+          </section>
+
+          <div class="result-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="explanations-eyebrow">Interpretation</p>
+                  <h2 id="explanations-title">结果解释</h2>
+                </div>
+              </div>
+              <div class="explanation-grid" id="explanation-grid"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="factors-eyebrow">Drivers</p>
+                  <h2 id="factors-title">关键指标</h2>
+                </div>
+              </div>
+              <dl class="key-values" id="key-values"></dl>
+            </section>
           </div>
 
-          <article class="subpanel table-panel">
-            <div class="table-header">
-              <h2>单球明细</h2>
-              <p>只要有载荷，这颗球就会参与本体电容并联。</p>
+          <div class="chart-grid">
+            <section class="panel chart-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="voltage-chart-eyebrow">Voltage</p>
+                  <h2 id="voltage-chart-title">三段分压</h2>
+                </div>
+              </div>
+              <canvas id="voltage-chart" height="260"></canvas>
+            </section>
+
+            <section class="panel chart-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="field-chart-eyebrow">Field</p>
+                  <h2 id="field-chart-title">三段场强</h2>
+                </div>
+              </div>
+              <canvas id="field-chart" height="260"></canvas>
+            </section>
+
+            <section class="panel chart-panel wide-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="frequency-chart-eyebrow">Impedance</p>
+                  <h2 id="frequency-chart-title">扫频阻抗</h2>
+                </div>
+              </div>
+              <canvas id="frequency-chart" height="280"></canvas>
+            </section>
+
+            <section class="panel chart-panel wide-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="sweep-chart-eyebrow">Sweep</p>
+                  <h2 id="sweep-chart-title">扫参趋势</h2>
+                </div>
+                <div class="chart-toolbar">
+                  <label>
+                    <span id="sweep-variable-label">变量</span>
+                    <select id="sweep-variable-select">
+                      <option value="speed">转速</option>
+                      <option value="temperature">温度</option>
+                      <option value="radial_load">径向载荷</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span id="sweep-metric-label">指标</span>
+                    <select id="sweep-metric-select">
+                      <option value="effective_capacitance_pf">总电容</option>
+                      <option value="max_oil_film_field_mv_m">最大油膜场强</option>
+                      <option value="risk_level_numeric">风险等级</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <canvas id="sweep-chart" height="280"></canvas>
+            </section>
+
+            <section class="panel chart-panel wide-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="sensitivity-chart-eyebrow">Sensitivity</p>
+                  <h2 id="sensitivity-chart-title">敏感性排序</h2>
+                </div>
+                <div class="chart-toolbar">
+                  <label>
+                    <span id="sensitivity-metric-label">排序指标</span>
+                    <select id="sensitivity-metric-select">
+                      <option value="effective_capacitance_pf">总电容</option>
+                      <option value="max_oil_film_field">最大油膜场强</option>
+                      <option value="risk_level">风险等级</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <canvas id="sensitivity-chart" height="320"></canvas>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow mini" id="details-eyebrow">Path Detail</p>
+                <h2 id="details-title">单球明细</h2>
+              </div>
+              <p class="summary-note" id="details-note">
+                每条路径都按内圈油膜、陶瓷球本体、外圈油膜的串联网络求解。
+              </p>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>角位置</th>
-                    <th>载荷</th>
-                    <th>接触角</th>
-                    <th>内圈膜厚</th>
-                    <th>外圈膜厚</th>
-                    <th>内圈油膜</th>
-                    <th>陶瓷球本体</th>
-                    <th>外圈油膜</th>
-                    <th>串联等效</th>
-                    <th>内圈分压</th>
-                    <th>陶瓷球分压</th>
-                    <th>外圈分压</th>
-                    <th>内圈场强</th>
-                    <th>陶瓷等效场强</th>
-                    <th>外圈场强</th>
-                    <th>主承担段</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for detail in loaded_details %}
-                  <tr>
-                    <td>{{ "%.1f"|format(detail.angle_deg) }}°</td>
-                    <td>{{ "%.2f"|format(detail.load_n) }} N</td>
-                    <td>{{ "%.3f"|format(detail.contact_angle_deg) }}°</td>
-                    <td>{{ "%.4f"|format(detail.inner_film_thickness_um) }} μm</td>
-                    <td>{{ "%.4f"|format(detail.outer_film_thickness_um) }} μm</td>
-                    <td>{{ "%.5f"|format(detail.inner_contact_capacitance_pf) }} pF</td>
-                    <td>{{ "%.5f"|format(detail.ceramic_body_capacitance_pf) }} pF</td>
-                    <td>{{ "%.5f"|format(detail.outer_contact_capacitance_pf) }} pF</td>
-                    <td><strong>{{ "%.5f"|format(detail.series_capacitance_pf) }} pF</strong></td>
-                    <td>{{ "%.4f"|format(detail.inner_voltage_v) }} V / {{ "%.1f"|format(detail.inner_voltage_ratio * 100) }}%</td>
-                    <td>{{ "%.4f"|format(detail.ceramic_voltage_v) }} V / {{ "%.1f"|format(detail.ceramic_voltage_ratio * 100) }}%</td>
-                    <td>{{ "%.4f"|format(detail.outer_voltage_v) }} V / {{ "%.1f"|format(detail.outer_voltage_ratio * 100) }}%</td>
-                    <td>{{ "%.3f"|format(detail.inner_field_mv_m) }} MV/m</td>
-                    <td>{{ "%.3f"|format(detail.ceramic_equivalent_field_mv_m) }} MV/m</td>
-                    <td>{{ "%.3f"|format(detail.outer_field_mv_m) }} MV/m</td>
-                    <td><strong>{{ detail.dominant_voltage_segment }}</strong></td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+            <div id="detail-sections"></div>
+          </section>
+
+          <footer class="panel footer-panel">
+            <div class="footer-copy">
+              <strong id="footer-version">Model v{{ runtime.modelVersion }}</strong>
+              <p id="footer-note">{{ runtime.modelNote }}</p>
             </div>
-          </article>
-          {% endif %}
+          </footer>
         </section>
       </section>
     </main>

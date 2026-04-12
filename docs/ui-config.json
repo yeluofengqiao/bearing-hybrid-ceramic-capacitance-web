@@ -1,0 +1,834 @@
+{
+  "version": "2.0.0",
+  "csv_headers": [
+    "Angle (deg)",
+    "Load (N)",
+    "Contact Angle (deg)",
+    "Inner Film (um)",
+    "Outer Film (um)",
+    "Inner Contact (pF)",
+    "Ceramic Body (pF)",
+    "Outer Contact (pF)",
+    "Series Total (pF)",
+    "Inner Voltage Ratio",
+    "Ceramic Voltage Ratio",
+    "Outer Voltage Ratio",
+    "Inner Voltage (V)",
+    "Ceramic Voltage (V)",
+    "Outer Voltage (V)",
+    "Inner Field (MV/m)",
+    "Ceramic Eq Field (MV/m)",
+    "Outer Field (MV/m)",
+    "Dominant Segment"
+  ],
+  "presets": {
+    "6208": {
+      "ball_diameter_mm": 11.906,
+      "pitch_diameter_mm": 60.0,
+      "rolling_elements": 9
+    },
+    "6209": {
+      "ball_diameter_mm": 12.7,
+      "pitch_diameter_mm": 68.0,
+      "rolling_elements": 9
+    },
+    "6210": {
+      "ball_diameter_mm": 15.081,
+      "pitch_diameter_mm": 76.0,
+      "rolling_elements": 8
+    },
+    "6308": {
+      "ball_diameter_mm": 15.081,
+      "pitch_diameter_mm": 73.0,
+      "rolling_elements": 8
+    }
+  },
+  "defaults": {
+    "bearing_code": "6208",
+    "speed_rpm": 3000.0,
+    "radial_load_n": 2000.0,
+    "axial_load_n": 0.0,
+    "axial_preload_n": 0.0,
+    "inner_ring_temp_c": 60.0,
+    "outer_ring_temp_c": 60.0,
+    "applied_voltage_v": 1.0,
+    "single_frequency_hz": 10000.0,
+    "fit_clearance_loss_um": 0.0,
+    "thermal_clearance_loss_um": 0.0,
+    "ball_diameter_mm": 11.906,
+    "pitch_diameter_mm": 60.0,
+    "rolling_elements": 9,
+    "radial_clearance_mm": 0.015,
+    "inner_curvature_coeff": 0.52,
+    "outer_curvature_coeff": 0.53,
+    "composite_roughness_um": 0.05,
+    "ring_youngs_modulus_mpa": 210000.0,
+    "ring_poisson_ratio": 0.3,
+    "ceramic_youngs_modulus_mpa": 310000.0,
+    "ceramic_poisson_ratio": 0.27,
+    "ceramic_relative_permittivity": 8.2,
+    "lubrication_state": "clean_oil",
+    "viscosity_40_cst": 68.0,
+    "viscosity_100_cst": 8.8,
+    "density_25c_kg_m3": 850.0,
+    "relative_permittivity_25c": 2.25,
+    "pressure_viscosity_coeff_pa_inv": 1.5e-8,
+    "thermal_expansion_coeff_per_c": 0.00065,
+    "bulk_modulus_pa": 1600000000.0,
+    "background_capacitance_pf": 0.8,
+    "cage_capacitance_pf": 0.15,
+    "seal_capacitance_pf": 0.05,
+    "mounting_capacitance_pf": 0.1,
+    "frequency_start_hz": 1000.0,
+    "frequency_end_hz": 10000000.0,
+    "frequency_point_count": 121,
+    "speed_start_rpm": 500.0,
+    "speed_end_rpm": 12000.0,
+    "temperature_start_c": 20.0,
+    "temperature_end_c": 120.0,
+    "radial_load_start_n": 500.0,
+    "radial_load_end_n": 5000.0,
+    "condition_point_count": 41
+  },
+  "groups": [
+    {
+      "id": "operating",
+      "title": {
+        "zh-CN": "工况与频率",
+        "en-US": "Operating Conditions"
+      },
+      "description": {
+        "zh-CN": "转速、载荷、双侧温度和单点频率决定膜厚、分压和阻抗读数。",
+        "en-US": "Speed, load, dual ring temperatures, and spot frequency drive film thickness, voltage split, and impedance."
+      },
+      "fields": [
+        {
+          "name": "speed_rpm",
+          "kind": "number",
+          "step": "any",
+          "unit": "rpm",
+          "label": {
+            "zh-CN": "转速 n",
+            "en-US": "Speed n"
+          },
+          "help": {
+            "zh-CN": "卷吸速度越高，通常油膜越厚，油膜电容会减小。",
+            "en-US": "Higher entrainment speed usually thickens the film and reduces oil-film capacitance."
+          }
+        },
+        {
+          "name": "radial_load_n",
+          "kind": "number",
+          "step": "any",
+          "unit": "N",
+          "label": {
+            "zh-CN": "径向载荷 Fr",
+            "en-US": "Radial Load Fr"
+          },
+          "help": {
+            "zh-CN": "径向载荷直接改变加载滚动体数量和接触椭圆面积。",
+            "en-US": "Radial load changes the number of loaded balls and the Hertzian contact area."
+          }
+        },
+        {
+          "name": "axial_load_n",
+          "kind": "number",
+          "step": "any",
+          "unit": "N",
+          "label": {
+            "zh-CN": "轴向载荷 Fa",
+            "en-US": "Axial Load Fa"
+          },
+          "help": {
+            "zh-CN": "轴向载荷通过接触角耦合进入滚动体载荷分布。",
+            "en-US": "Axial load enters the rolling-element load distribution through contact angle."
+          }
+        },
+        {
+          "name": "axial_preload_n",
+          "kind": "number",
+          "step": "any",
+          "unit": "N",
+          "label": {
+            "zh-CN": "轴向预紧",
+            "en-US": "Axial Preload"
+          },
+          "help": {
+            "zh-CN": "预紧会抬高等效轴向载荷并缩小运行游隙。",
+            "en-US": "Preload raises the effective axial load and shrinks operating clearance."
+          }
+        },
+        {
+          "name": "inner_ring_temp_c",
+          "kind": "number",
+          "step": "any",
+          "unit": "°C",
+          "label": {
+            "zh-CN": "内圈温度",
+            "en-US": "Inner Ring Temp"
+          },
+          "help": {
+            "zh-CN": "单独建模内圈温度，允许内外圈存在温差。",
+            "en-US": "Inner ring temperature is modeled independently so the two rings may differ."
+          }
+        },
+        {
+          "name": "outer_ring_temp_c",
+          "kind": "number",
+          "step": "any",
+          "unit": "°C",
+          "label": {
+            "zh-CN": "外圈温度",
+            "en-US": "Outer Ring Temp"
+          },
+          "help": {
+            "zh-CN": "外圈温度影响外圈油膜粘度、密度和介电修正。",
+            "en-US": "Outer ring temperature modifies outer-film viscosity, density, and permittivity."
+          }
+        },
+        {
+          "name": "applied_voltage_v",
+          "kind": "number",
+          "step": "any",
+          "unit": "V",
+          "label": {
+            "zh-CN": "施加总电压",
+            "en-US": "Applied Voltage"
+          },
+          "help": {
+            "zh-CN": "三段分压和等效场强都按这个总电压计算。",
+            "en-US": "Voltage split and equivalent electric field are computed from this total voltage."
+          }
+        },
+        {
+          "name": "single_frequency_hz",
+          "kind": "number",
+          "step": "any",
+          "unit": "Hz",
+          "label": {
+            "zh-CN": "单点频率",
+            "en-US": "Spot Frequency"
+          },
+          "help": {
+            "zh-CN": "单点阻抗使用纯电容等效阻抗，不包含泄漏电阻。",
+            "en-US": "Single-point impedance uses pure capacitive impedance without leakage resistance."
+          }
+        },
+        {
+          "name": "fit_clearance_loss_um",
+          "kind": "number",
+          "step": "any",
+          "unit": "μm",
+          "label": {
+            "zh-CN": "配合游隙损失",
+            "en-US": "Fit Clearance Loss"
+          },
+          "help": {
+            "zh-CN": "用于表示装配配合造成的初始游隙损失。",
+            "en-US": "Represents clearance loss caused by fit-up and assembly."
+          }
+        },
+        {
+          "name": "thermal_clearance_loss_um",
+          "kind": "number",
+          "step": "any",
+          "unit": "μm",
+          "label": {
+            "zh-CN": "热游隙损失",
+            "en-US": "Thermal Clearance Loss"
+          },
+          "help": {
+            "zh-CN": "用于表示热膨胀导致的运行游隙损失。",
+            "en-US": "Represents operating clearance loss caused by thermal growth."
+          }
+        }
+      ]
+    },
+    {
+      "id": "geometry",
+      "title": {
+        "zh-CN": "轴承预设与几何",
+        "en-US": "Bearing Preset And Geometry"
+      },
+      "description": {
+        "zh-CN": "下拉预设会覆盖球径、PCD 和滚动体数量，其他材料参数保持不变。",
+        "en-US": "Preset selection overrides ball diameter, pitch circle diameter, and rolling-element count only."
+      },
+      "fields": [
+        {
+          "name": "bearing_code",
+          "kind": "select",
+          "unit": "-",
+          "label": {
+            "zh-CN": "轴承编号",
+            "en-US": "Bearing Code"
+          },
+          "help": {
+            "zh-CN": "切换预设后，你仍然可以手动覆盖几何参数。",
+            "en-US": "You can still override geometry manually after switching presets."
+          },
+          "options": [
+            {
+              "value": "6208",
+              "label": {
+                "zh-CN": "6208",
+                "en-US": "6208"
+              }
+            },
+            {
+              "value": "6209",
+              "label": {
+                "zh-CN": "6209",
+                "en-US": "6209"
+              }
+            },
+            {
+              "value": "6210",
+              "label": {
+                "zh-CN": "6210",
+                "en-US": "6210"
+              }
+            },
+            {
+              "value": "6308",
+              "label": {
+                "zh-CN": "6308",
+                "en-US": "6308"
+              }
+            },
+            {
+              "value": "custom",
+              "label": {
+                "zh-CN": "自定义",
+                "en-US": "Custom"
+              }
+            }
+          ]
+        },
+        {
+          "name": "ball_diameter_mm",
+          "kind": "number",
+          "step": "any",
+          "unit": "mm",
+          "label": {
+            "zh-CN": "球径 Dw",
+            "en-US": "Ball Diameter Dw"
+          },
+          "help": {
+            "zh-CN": "球径改变接触曲率、几何电场扩展和滚动体间距。",
+            "en-US": "Ball diameter changes contact curvature, field spreading, and ball spacing."
+          }
+        },
+        {
+          "name": "pitch_diameter_mm",
+          "kind": "number",
+          "step": "any",
+          "unit": "mm",
+          "label": {
+            "zh-CN": "节圆直径 / PCD",
+            "en-US": "Pitch Diameter / PCD"
+          },
+          "help": {
+            "zh-CN": "PCD 进入接触运动学和载荷分布几何。",
+            "en-US": "Pitch diameter enters contact kinematics and the load-distribution geometry."
+          }
+        },
+        {
+          "name": "rolling_elements",
+          "kind": "number",
+          "step": "1",
+          "unit": "pcs",
+          "label": {
+            "zh-CN": "滚动体数量 Z",
+            "en-US": "Rolling Elements Z"
+          },
+          "help": {
+            "zh-CN": "加载滚动体数决定并联通路数量。",
+            "en-US": "The number of loaded balls controls the number of parallel current paths."
+          }
+        },
+        {
+          "name": "radial_clearance_mm",
+          "kind": "number",
+          "step": "any",
+          "unit": "mm",
+          "label": {
+            "zh-CN": "初始径向游隙",
+            "en-US": "Initial Radial Clearance"
+          },
+          "help": {
+            "zh-CN": "程序会再扣除配合损失和热损失得到运行游隙。",
+            "en-US": "The solver subtracts fit and thermal losses to get the operating clearance."
+          }
+        },
+        {
+          "name": "inner_curvature_coeff",
+          "kind": "number",
+          "step": "any",
+          "unit": "-",
+          "label": {
+            "zh-CN": "内圈曲率系数 fi",
+            "en-US": "Inner Curvature fi"
+          },
+          "help": {
+            "zh-CN": "用于 Hertz 接触椭圆和有效接触半径计算。",
+            "en-US": "Used in Hertzian ellipse and effective contact radius calculations."
+          }
+        },
+        {
+          "name": "outer_curvature_coeff",
+          "kind": "number",
+          "step": "any",
+          "unit": "-",
+          "label": {
+            "zh-CN": "外圈曲率系数 fe",
+            "en-US": "Outer Curvature fe"
+          },
+          "help": {
+            "zh-CN": "用于外圈点接触刚度和接触面积求解。",
+            "en-US": "Used for outer-race point-contact stiffness and area."
+          }
+        },
+        {
+          "name": "composite_roughness_um",
+          "kind": "number",
+          "step": "any",
+          "unit": "μm",
+          "label": {
+            "zh-CN": "综合粗糙度",
+            "en-US": "Composite Roughness"
+          },
+          "help": {
+            "zh-CN": "粗糙度同时进入 λ 比和薄膜有效间隙修正。",
+            "en-US": "Roughness enters both lambda ratio and the thin-film effective-gap correction."
+          }
+        }
+      ]
+    },
+    {
+      "id": "materials",
+      "title": {
+        "zh-CN": "材料与润滑剂",
+        "en-US": "Materials And Lubricant"
+      },
+      "description": {
+        "zh-CN": "钢圈、陶瓷球和润滑剂共同决定 EHL 膜厚、介电常数和球体本体电容。",
+        "en-US": "Rings, ceramic balls, and lubricant jointly determine EHL film thickness, permittivity, and ball-body capacitance."
+      },
+      "fields": [
+        {
+          "name": "ring_youngs_modulus_mpa",
+          "kind": "number",
+          "step": "any",
+          "unit": "MPa",
+          "label": {
+            "zh-CN": "钢圈弹性模量",
+            "en-US": "Ring Young's Modulus"
+          },
+          "help": {
+            "zh-CN": "与陶瓷球模量一起决定等效模量。",
+            "en-US": "Together with the ceramic modulus it sets the equivalent Hertzian modulus."
+          }
+        },
+        {
+          "name": "ring_poisson_ratio",
+          "kind": "number",
+          "step": "any",
+          "unit": "-",
+          "label": {
+            "zh-CN": "钢圈泊松比",
+            "en-US": "Ring Poisson Ratio"
+          },
+          "help": {
+            "zh-CN": "用于求解钢圈与陶瓷球的等效模量。",
+            "en-US": "Used in the equivalent modulus between the steel race and ceramic ball."
+          }
+        },
+        {
+          "name": "ceramic_youngs_modulus_mpa",
+          "kind": "number",
+          "step": "any",
+          "unit": "MPa",
+          "label": {
+            "zh-CN": "陶瓷球弹性模量",
+            "en-US": "Ceramic Young's Modulus"
+          },
+          "help": {
+            "zh-CN": "影响接触刚度、变形量和 Hertz 接触面积。",
+            "en-US": "Changes stiffness, deformation, and Hertzian contact area."
+          }
+        },
+        {
+          "name": "ceramic_poisson_ratio",
+          "kind": "number",
+          "step": "any",
+          "unit": "-",
+          "label": {
+            "zh-CN": "陶瓷球泊松比",
+            "en-US": "Ceramic Poisson Ratio"
+          },
+          "help": {
+            "zh-CN": "和模量一起决定陶瓷接触的机械响应。",
+            "en-US": "Works with the elastic modulus to set the ceramic contact response."
+          }
+        },
+        {
+          "name": "ceramic_relative_permittivity",
+          "kind": "number",
+          "step": "any",
+          "unit": "-",
+          "label": {
+            "zh-CN": "陶瓷相对介电常数",
+            "en-US": "Ceramic Relative Permittivity"
+          },
+          "help": {
+            "zh-CN": "决定陶瓷球本体电容和其在串联路径中的分压占比。",
+            "en-US": "Sets the ceramic-body capacitance and its voltage share in the series path."
+          }
+        },
+        {
+          "name": "lubrication_state",
+          "kind": "select",
+          "unit": "-",
+          "label": {
+            "zh-CN": "润滑状态",
+            "en-US": "Lubrication State"
+          },
+          "help": {
+            "zh-CN": "通过倍率修正粘度、介电常数和粗糙度，不引入额外导电支路。",
+            "en-US": "Applies multipliers to viscosity, permittivity, and roughness without adding conductive branches."
+          },
+          "options": [
+            {
+              "value": "clean_oil",
+              "label": {
+                "zh-CN": "清洁油润滑",
+                "en-US": "Clean Oil"
+              }
+            },
+            {
+              "value": "grease",
+              "label": {
+                "zh-CN": "润滑脂",
+                "en-US": "Grease"
+              }
+            },
+            {
+              "value": "moisture_contaminated",
+              "label": {
+                "zh-CN": "含水污染",
+                "en-US": "Moisture Contaminated"
+              }
+            },
+            {
+              "value": "particle_contaminated",
+              "label": {
+                "zh-CN": "颗粒污染",
+                "en-US": "Particle Contaminated"
+              }
+            },
+            {
+              "value": "aged_lubricant",
+              "label": {
+                "zh-CN": "老化润滑剂",
+                "en-US": "Aged Lubricant"
+              }
+            }
+          ]
+        },
+        {
+          "name": "viscosity_40_cst",
+          "kind": "number",
+          "step": "any",
+          "unit": "cSt",
+          "label": {
+            "zh-CN": "40°C 运动粘度",
+            "en-US": "40°C Kinematic Viscosity"
+          },
+          "help": {
+            "zh-CN": "与 100°C 粘度一起用于 ASTM D341 粘温拟合。",
+            "en-US": "Used with the 100°C value for ASTM D341 viscosity-temperature fitting."
+          }
+        },
+        {
+          "name": "viscosity_100_cst",
+          "kind": "number",
+          "step": "any",
+          "unit": "cSt",
+          "label": {
+            "zh-CN": "100°C 运动粘度",
+            "en-US": "100°C Kinematic Viscosity"
+          },
+          "help": {
+            "zh-CN": "与 40°C 粘度共同决定运行温度下的粘度。",
+            "en-US": "Works with the 40°C value to determine operating viscosity."
+          }
+        },
+        {
+          "name": "density_25c_kg_m3",
+          "kind": "number",
+          "step": "any",
+          "unit": "kg/m³",
+          "label": {
+            "zh-CN": "25°C 密度",
+            "en-US": "25°C Density"
+          },
+          "help": {
+            "zh-CN": "用于动力粘度和 Clausius-Mossotti 介电修正。",
+            "en-US": "Used for dynamic viscosity and Clausius-Mossotti permittivity correction."
+          }
+        },
+        {
+          "name": "relative_permittivity_25c",
+          "kind": "number",
+          "step": "any",
+          "unit": "-",
+          "label": {
+            "zh-CN": "25°C 油品介电常数",
+            "en-US": "25°C Oil Permittivity"
+          },
+          "help": {
+            "zh-CN": "配合密度和压力修正得到油膜有效介电常数。",
+            "en-US": "Combined with density and pressure correction to get effective film permittivity."
+          }
+        },
+        {
+          "name": "pressure_viscosity_coeff_pa_inv",
+          "kind": "number",
+          "step": "any",
+          "unit": "Pa⁻¹",
+          "label": {
+            "zh-CN": "压力-粘度系数",
+            "en-US": "Pressure-Viscosity Coefficient"
+          },
+          "help": {
+            "zh-CN": "点接触 EHL 膜厚计算中的关键流体参数。",
+            "en-US": "A key fluid parameter in point-contact EHL film-thickness calculations."
+          }
+        },
+        {
+          "name": "thermal_expansion_coeff_per_c",
+          "kind": "number",
+          "step": "any",
+          "unit": "1/°C",
+          "label": {
+            "zh-CN": "热膨胀系数",
+            "en-US": "Thermal Expansion Coefficient"
+          },
+          "help": {
+            "zh-CN": "用于流体密度随温度变化的近似。",
+            "en-US": "Used for the approximate fluid-density temperature dependency."
+          }
+        },
+        {
+          "name": "bulk_modulus_pa",
+          "kind": "number",
+          "step": "any",
+          "unit": "Pa",
+          "label": {
+            "zh-CN": "体积模量",
+            "en-US": "Bulk Modulus"
+          },
+          "help": {
+            "zh-CN": "用于压力作用下润滑剂密度和介电修正。",
+            "en-US": "Used for density and permittivity correction under pressure."
+          }
+        }
+      ]
+    },
+    {
+      "id": "parasitics",
+      "title": {
+        "zh-CN": "寄生电容网络",
+        "en-US": "Parasitic Capacitance Network"
+      },
+      "description": {
+        "zh-CN": "寄生支路显式并联到轴承本体电容，用于区分本体主导和寄生主导。",
+        "en-US": "Parasitic branches are added explicitly in parallel to distinguish intrinsic-dominant from parasitic-dominant measurements."
+      },
+      "fields": [
+        {
+          "name": "background_capacitance_pf",
+          "kind": "number",
+          "step": "any",
+          "unit": "pF",
+          "label": {
+            "zh-CN": "残余背景电容",
+            "en-US": "Residual Background Capacitance"
+          },
+          "help": {
+            "zh-CN": "保留为手动输入，不做自动标定。",
+            "en-US": "Kept as a manual input; no automatic calibration is added in this release."
+          }
+        },
+        {
+          "name": "cage_capacitance_pf",
+          "kind": "number",
+          "step": "any",
+          "unit": "pF",
+          "label": {
+            "zh-CN": "保持架寄生电容",
+            "en-US": "Cage Capacitance"
+          },
+          "help": {
+            "zh-CN": "用于显式表示保持架带来的附加并联耦合。",
+            "en-US": "Represents additional parallel coupling caused by the cage."
+          }
+        },
+        {
+          "name": "seal_capacitance_pf",
+          "kind": "number",
+          "step": "any",
+          "unit": "pF",
+          "label": {
+            "zh-CN": "密封寄生电容",
+            "en-US": "Seal Capacitance"
+          },
+          "help": {
+            "zh-CN": "用于密封或防尘结构的附加寄生通路。",
+            "en-US": "Captures extra parasitic coupling from seals or shields."
+          }
+        },
+        {
+          "name": "mounting_capacitance_pf",
+          "kind": "number",
+          "step": "any",
+          "unit": "pF",
+          "label": {
+            "zh-CN": "安装/夹具寄生电容",
+            "en-US": "Mounting Capacitance"
+          },
+          "help": {
+            "zh-CN": "用于治具、线缆和安装结构引入的并联电容。",
+            "en-US": "Represents fixture, cable, and mounting structure parallel capacitance."
+          }
+        }
+      ]
+    },
+    {
+      "id": "sweeps",
+      "title": {
+        "zh-CN": "扫频与扫参范围",
+        "en-US": "Sweep Ranges"
+      },
+      "description": {
+        "zh-CN": "频率扫频固定输出 121 个点，转速/温度/径向载荷扫参固定输出 41 个点。",
+        "en-US": "Frequency sweep returns 121 points; speed, temperature, and radial-load sweeps return 41 points."
+      },
+      "fields": [
+        {
+          "name": "frequency_start_hz",
+          "kind": "number",
+          "step": "any",
+          "unit": "Hz",
+          "label": {
+            "zh-CN": "扫频起点",
+            "en-US": "Frequency Start"
+          },
+          "help": {
+            "zh-CN": "扫频输出纯电容等效的 |Z| 和 Xc。",
+            "en-US": "The sweep outputs |Z| and Xc for the pure-capacitive equivalent."
+          }
+        },
+        {
+          "name": "frequency_end_hz",
+          "kind": "number",
+          "step": "any",
+          "unit": "Hz",
+          "label": {
+            "zh-CN": "扫频终点",
+            "en-US": "Frequency End"
+          },
+          "help": {
+            "zh-CN": "扫频采用对数坐标。",
+            "en-US": "The frequency sweep is plotted on a logarithmic axis."
+          }
+        },
+        {
+          "name": "speed_start_rpm",
+          "kind": "number",
+          "step": "any",
+          "unit": "rpm",
+          "label": {
+            "zh-CN": "转速扫参起点",
+            "en-US": "Speed Sweep Start"
+          },
+          "help": {
+            "zh-CN": "转速扫参用于观察电容、场强和风险等级趋势。",
+            "en-US": "Used to observe trends in capacitance, field strength, and risk."
+          }
+        },
+        {
+          "name": "speed_end_rpm",
+          "kind": "number",
+          "step": "any",
+          "unit": "rpm",
+          "label": {
+            "zh-CN": "转速扫参终点",
+            "en-US": "Speed Sweep End"
+          },
+          "help": {
+            "zh-CN": "默认覆盖 500 到 12000 rpm。",
+            "en-US": "Defaults span 500 to 12000 rpm."
+          }
+        },
+        {
+          "name": "temperature_start_c",
+          "kind": "number",
+          "step": "any",
+          "unit": "°C",
+          "label": {
+            "zh-CN": "温度扫参起点",
+            "en-US": "Temperature Sweep Start"
+          },
+          "help": {
+            "zh-CN": "扫参时内外圈温度同步变化。",
+            "en-US": "During temperature sweep the inner and outer ring temperatures move together."
+          }
+        },
+        {
+          "name": "temperature_end_c",
+          "kind": "number",
+          "step": "any",
+          "unit": "°C",
+          "label": {
+            "zh-CN": "温度扫参终点",
+            "en-US": "Temperature Sweep End"
+          },
+          "help": {
+            "zh-CN": "默认覆盖 20 到 120 °C。",
+            "en-US": "Defaults span 20 to 120 °C."
+          }
+        },
+        {
+          "name": "radial_load_start_n",
+          "kind": "number",
+          "step": "any",
+          "unit": "N",
+          "label": {
+            "zh-CN": "径向载荷扫参起点",
+            "en-US": "Radial Load Sweep Start"
+          },
+          "help": {
+            "zh-CN": "载荷扫参只改变径向载荷，轴向载荷保持当前输入。",
+            "en-US": "The load sweep changes radial load only; axial load stays fixed."
+          }
+        },
+        {
+          "name": "radial_load_end_n",
+          "kind": "number",
+          "step": "any",
+          "unit": "N",
+          "label": {
+            "zh-CN": "径向载荷扫参终点",
+            "en-US": "Radial Load Sweep End"
+          },
+          "help": {
+            "zh-CN": "默认覆盖 500 到 5000 N。",
+            "en-US": "Defaults span 500 to 5000 N."
+          }
+        }
+      ]
+    }
+  ]
+}

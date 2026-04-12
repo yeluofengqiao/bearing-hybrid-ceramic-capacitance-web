@@ -3,160 +3,279 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>混合陶瓷球轴承电容计算器</title>
+    <title>混合陶瓷球轴承电容分析平台</title>
     <link rel="stylesheet" href="./styles.css">
+    <script>
+      window.APP_RUNTIME = {
+        kind: "pages",
+        assetBase: ".",
+        configUrl: "./ui-config.json",
+        modelUrl: "./hybrid_bearing_capacitance.py",
+        modelVersion: "2.0.0",
+        modelNote: "Pure capacitive impedance model without leakage resistance or conductive oil-film branches.",
+        pyodideIndexUrl: "https://cdn.jsdelivr.net/pyodide/v0.27.5/full/",
+        initialLang: "zh-CN"
+      };
+    </script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.27.5/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
     <script src="./app.js" defer></script>
   </head>
   <body>
     <main class="page-shell">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">GitHub Pages Runtime</p>
-          <h1>混合陶瓷球轴承电容计算器</h1>
-          <p class="intro">
-            这个公开页面直接在浏览器里运行 Python 模型，不依赖后台服务。默认值按 6208 近似参数预填：
-            <strong>PCD 60 mm</strong>、<strong>球径 11.906 mm</strong>。
+          <p class="eyebrow" id="runtime-badge">Hybrid Ceramic Bearing Capacitance</p>
+          <h1 id="page-title">混合陶瓷球轴承电容分析平台</h1>
+          <p class="intro" id="page-intro">
+            统一计算混合陶瓷球轴承的本体电容、寄生并联网络、分压、电场、扫频阻抗、扫参趋势和风险等级。
           </p>
+          <div class="hero-actions">
+            <button type="button" id="calculate-button">计算</button>
+            <button type="button" class="secondary-button" id="share-button">复制分享链接</button>
+            <button type="button" class="secondary-button" id="pdf-button">导出 PDF</button>
+            <button type="button" class="secondary-button" id="csv-button">导出单球 CSV</button>
+            <span id="status-pill" class="status-pill">准备就绪</span>
+          </div>
         </div>
+
         <div class="hero-note">
           <div class="note-card">
-            <span>公开链接</span>
-            <strong>GitHub Pages</strong>
+            <span id="runtime-card-label">运行环境</span>
+            <strong id="runtime-card-value">GitHub Pages + Pyodide</strong>
           </div>
           <div class="note-card">
-            <span>计算核心</span>
-            <strong>Hertz + Hamrock-Dowson + 串联电容网络</strong>
+            <span id="model-card-label">模型版本</span>
+            <strong id="model-card-value">2.0.0</strong>
+          </div>
+          <div class="note-card">
+            <span id="note-card-label">模型说明</span>
+            <strong id="model-note">Pure capacitive impedance model without leakage resistance or conductive oil-film branches.</strong>
           </div>
         </div>
       </section>
 
       <section class="layout">
-        <form id="calc-form" class="panel input-panel">
-          <section class="input-group">
-            <div class="group-header">
-              <h2>工况</h2>
-              <p>转速、载荷和温度直接影响膜厚与接触面积。</p>
+        <aside class="panel control-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow mini" id="controls-eyebrow">Study Setup</p>
+              <h2 id="controls-title">工况设置</h2>
             </div>
-            <div class="field-grid">
-              <label class="field"><span class="field-label">转速 n</span><div class="field-input-wrap"><input name="speed_rpm" value="3000"><em>rpm</em></div></label>
-              <label class="field"><span class="field-label">径向载荷 Fr</span><div class="field-input-wrap"><input name="radial_load_n" value="2000"><em>N</em></div></label>
-              <label class="field"><span class="field-label">轴向载荷 Fa</span><div class="field-input-wrap"><input name="axial_load_n" value="0"><em>N</em></div></label>
-              <label class="field"><span class="field-label">润滑剂温度</span><div class="field-input-wrap"><input name="temperature_c" value="60"><em>°C</em></div></label>
-              <label class="field"><span class="field-label">施加总电压</span><div class="field-input-wrap"><input name="applied_voltage_v" value="1"><em>V</em></div></label>
+            <div class="mode-toggle" role="tablist" aria-label="mode toggle">
+              <button type="button" class="mode-button active" id="single-mode-button">单工况</button>
+              <button type="button" class="mode-button" id="compare-mode-button">Case A / B</button>
             </div>
-          </section>
-
-          <section class="input-group">
-            <div class="group-header">
-              <h2>6208 几何默认值</h2>
-              <p>按你的要求预填 6208 的近似几何与材料边界。</p>
-            </div>
-            <div class="field-grid">
-              <label class="field"><span class="field-label">轴承编号</span><div class="field-input-wrap"><input name="bearing_code" value="6208"><em>-</em></div></label>
-              <label class="field"><span class="field-label">球径 Dw</span><div class="field-input-wrap"><input name="ball_diameter_mm" value="11.906"><em>mm</em></div></label>
-              <label class="field"><span class="field-label">节圆直径 Dm / PCD</span><div class="field-input-wrap"><input name="pitch_diameter_mm" value="60"><em>mm</em></div></label>
-              <label class="field"><span class="field-label">滚动体数量 Z</span><div class="field-input-wrap"><input name="rolling_elements" value="9"><em>个</em></div></label>
-              <label class="field"><span class="field-label">径向游隙</span><div class="field-input-wrap"><input name="radial_clearance_mm" value="0.015"><em>mm</em></div></label>
-              <label class="field"><span class="field-label">内圈曲率系数 fi</span><div class="field-input-wrap"><input name="inner_curvature_coeff" value="0.52"><em>-</em></div></label>
-              <label class="field"><span class="field-label">外圈曲率系数 fe</span><div class="field-input-wrap"><input name="outer_curvature_coeff" value="0.53"><em>-</em></div></label>
-              <label class="field"><span class="field-label">综合粗糙度</span><div class="field-input-wrap"><input name="composite_roughness_um" value="0.05"><em>μm</em></div></label>
-            </div>
-          </section>
-
-          <section class="input-group">
-            <div class="group-header">
-              <h2>材料与润滑剂</h2>
-              <p>钢圈 / 陶瓷球等效模量与润滑剂介电特性都参与计算。</p>
-            </div>
-            <div class="field-grid">
-              <label class="field"><span class="field-label">钢圈弹性模量</span><div class="field-input-wrap"><input name="ring_youngs_modulus_mpa" value="210000"><em>MPa</em></div></label>
-              <label class="field"><span class="field-label">钢圈泊松比</span><div class="field-input-wrap"><input name="ring_poisson_ratio" value="0.30"><em>-</em></div></label>
-              <label class="field"><span class="field-label">陶瓷球弹性模量</span><div class="field-input-wrap"><input name="ceramic_youngs_modulus_mpa" value="310000"><em>MPa</em></div></label>
-              <label class="field"><span class="field-label">陶瓷球泊松比</span><div class="field-input-wrap"><input name="ceramic_poisson_ratio" value="0.27"><em>-</em></div></label>
-              <label class="field"><span class="field-label">陶瓷相对介电常数</span><div class="field-input-wrap"><input name="ceramic_relative_permittivity" value="8.2"><em>-</em></div></label>
-              <label class="field"><span class="field-label">40°C 粘度</span><div class="field-input-wrap"><input name="viscosity_40_cst" value="68"><em>cSt</em></div></label>
-              <label class="field"><span class="field-label">100°C 粘度</span><div class="field-input-wrap"><input name="viscosity_100_cst" value="8.8"><em>cSt</em></div></label>
-              <label class="field"><span class="field-label">25°C 密度</span><div class="field-input-wrap"><input name="density_25c_kg_m3" value="850"><em>kg/m³</em></div></label>
-              <label class="field"><span class="field-label">油品介电常数</span><div class="field-input-wrap"><input name="relative_permittivity_25c" value="2.25"><em>-</em></div></label>
-              <label class="field"><span class="field-label">压力-粘度系数</span><div class="field-input-wrap"><input name="pressure_viscosity_coeff_pa_inv" value="1.5e-8"><em>Pa⁻¹</em></div></label>
-              <label class="field"><span class="field-label">背景电容</span><div class="field-input-wrap"><input name="background_capacitance_pf" value="0.8"><em>pF</em></div></label>
-            </div>
-          </section>
-
-          <div class="actions">
-            <button type="submit" id="calc-button">计算电容</button>
-            <span id="status-pill" class="status-pill">准备就绪</span>
           </div>
-        </form>
 
-        <section class="panel results-panel">
+          <section class="utility-grid">
+            <label class="utility-field">
+              <span id="language-label">语言</span>
+              <select id="language-select">
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+              </select>
+            </label>
+            <label class="utility-field">
+              <span id="capacitance-unit-label">电容单位</span>
+              <select id="capacitance-unit-select">
+                <option value="pF">pF</option>
+                <option value="nF">nF</option>
+              </select>
+            </label>
+            <label class="utility-field">
+              <span id="field-unit-label">场强单位</span>
+              <select id="field-unit-select">
+                <option value="MV/m">MV/m</option>
+                <option value="V/um">V/μm</option>
+              </select>
+            </label>
+            <label class="utility-field">
+              <span id="load-unit-label">载荷单位</span>
+              <select id="load-unit-select">
+                <option value="N">N</option>
+                <option value="kN">kN</option>
+              </select>
+            </label>
+            <label class="utility-field hidden" id="export-case-field">
+              <span id="export-case-label">CSV 导出对象</span>
+              <select id="export-case-select">
+                <option value="a">Case A</option>
+                <option value="b">Case B</option>
+              </select>
+            </label>
+          </section>
+
+          <div class="form-stack">
+            <section class="case-panel" id="case-a-panel" data-case="a">
+              <div class="case-header">
+                <h3 id="case-a-title">Case A</h3>
+                <p id="case-a-note">默认用于当前工况分析。</p>
+              </div>
+              <div id="case-a-groups"></div>
+            </section>
+
+            <section class="case-panel hidden" id="case-b-panel" data-case="b">
+              <div class="case-header">
+                <h3 id="case-b-title">Case B</h3>
+                <p id="case-b-note">用于并列比较第二组工况。</p>
+              </div>
+              <div id="case-b-groups"></div>
+            </section>
+          </div>
+        </aside>
+
+        <section class="results-stack">
           <div id="error-box" class="error-box hidden"></div>
 
-          <div id="result-block" class="hidden">
-            <div class="metric-grid">
-              <article class="metric-card accent"><span>轴承本体电容</span><strong id="intrinsic-capacitance">-</strong><p>只统计滚动体通路的串联等效值。</p></article>
-              <article class="metric-card"><span>测量等效总电容</span><strong id="effective-capacitance">-</strong><p id="background-note">-</p></article>
-              <article class="metric-card"><span>施加总电压</span><strong id="applied-voltage">-</strong><p>分压与电场都按这个总电压计算。</p></article>
-              <article class="metric-card"><span>最小油膜厚度</span><strong id="min-film-thickness">-</strong><p>按内圈 / 外圈分别显示。</p></article>
-              <article class="metric-card"><span>加载滚动体数量</span><strong id="loaded-ball-count">-</strong><p id="loaded-ratio">-</p></article>
-              <article class="metric-card"><span>运行粘度</span><strong id="operating-viscosity">-</strong><p id="dynamic-viscosity">-</p></article>
-              <article class="metric-card"><span>等效模量</span><strong id="equivalent-modulus">-</strong><p>按钢圈 / 陶瓷球组合计算。</p></article>
-              <article class="metric-card"><span>主承担段</span><strong id="dominant-segment">-</strong><p>按加载滚动体路径的平均分压比例判定。</p></article>
-            </div>
-
-            <div class="analysis-grid">
-              <article class="subpanel">
-                <h2>贡献概览</h2>
-                <dl class="key-values" id="contribution-list"></dl>
-                <p class="small-note">三项原始和不是最终总电容，因为每颗球内部是串联网络。</p>
-              </article>
-
-              <article class="subpanel">
-                <h2>模型说明</h2>
-                <ul class="explain-list">
-                  <li>载荷分配采用深沟球轴承的准静态位移平衡。</li>
-                  <li>膜厚采用 Hamrock-Dowson 点接触中心膜厚近似。</li>
-                  <li>润滑剂介电常数使用 Clausius-Mossotti 关系并按温度、压力修正。</li>
-                  <li>陶瓷球本体使用 spreading capacitance 近似，因此对速度和温度的敏感性会比全钢轴承更温和。</li>
-                  <li>分压按串联电容关系计算，电容越小的段分得的电压越大。</li>
-                  <li>陶瓷球场强显示为等效场强，不等于球体内部真实局部场分布。</li>
-                </ul>
-              </article>
-            </div>
-
-            <article class="subpanel table-panel">
-              <div class="table-header">
-                <h2>单球明细</h2>
-                <p>每条滚动体通路都按内油膜 + 陶瓷球 + 外油膜串联。</p>
+          <section class="panel summary-panel" id="results-block">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow mini" id="summary-eyebrow">Results</p>
+                <h2 id="summary-title">关键结果</h2>
               </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>角位置</th>
-                      <th>载荷</th>
-                      <th>接触角</th>
-                      <th>内圈膜厚</th>
-                      <th>外圈膜厚</th>
-                      <th>内圈油膜</th>
-                      <th>陶瓷球本体</th>
-                      <th>外圈油膜</th>
-                      <th>串联等效</th>
-                      <th>内圈分压</th>
-                      <th>陶瓷球分压</th>
-                      <th>外圈分压</th>
-                      <th>内圈场强</th>
-                      <th>陶瓷等效场强</th>
-                      <th>外圈场强</th>
-                      <th>主承担段</th>
-                    </tr>
-                  </thead>
-                  <tbody id="detail-body"></tbody>
-                </table>
+              <p class="summary-note" id="summary-note">
+                同时展示本体电容、寄生并联、电场、阻抗和风险判断。
+              </p>
+            </div>
+            <div class="summary-grid" id="summary-grid"></div>
+          </section>
+
+          <section class="panel hidden" id="comparison-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow mini" id="comparison-eyebrow">Compare</p>
+                <h2 id="comparison-title">Case A / B 差异</h2>
               </div>
-            </article>
+              <p class="summary-note" id="comparison-note">
+                展示等效总电容、油膜场强和风险等级差值。
+              </p>
+            </div>
+            <div class="summary-grid comparison-grid" id="comparison-grid"></div>
+          </section>
+
+          <div class="result-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="explanations-eyebrow">Interpretation</p>
+                  <h2 id="explanations-title">结果解释</h2>
+                </div>
+              </div>
+              <div class="explanation-grid" id="explanation-grid"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="factors-eyebrow">Drivers</p>
+                  <h2 id="factors-title">关键指标</h2>
+                </div>
+              </div>
+              <dl class="key-values" id="key-values"></dl>
+            </section>
           </div>
+
+          <div class="chart-grid">
+            <section class="panel chart-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="voltage-chart-eyebrow">Voltage</p>
+                  <h2 id="voltage-chart-title">三段分压</h2>
+                </div>
+              </div>
+              <canvas id="voltage-chart" height="260"></canvas>
+            </section>
+
+            <section class="panel chart-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="field-chart-eyebrow">Field</p>
+                  <h2 id="field-chart-title">三段场强</h2>
+                </div>
+              </div>
+              <canvas id="field-chart" height="260"></canvas>
+            </section>
+
+            <section class="panel chart-panel wide-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="frequency-chart-eyebrow">Impedance</p>
+                  <h2 id="frequency-chart-title">扫频阻抗</h2>
+                </div>
+              </div>
+              <canvas id="frequency-chart" height="280"></canvas>
+            </section>
+
+            <section class="panel chart-panel wide-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="sweep-chart-eyebrow">Sweep</p>
+                  <h2 id="sweep-chart-title">扫参趋势</h2>
+                </div>
+                <div class="chart-toolbar">
+                  <label>
+                    <span id="sweep-variable-label">变量</span>
+                    <select id="sweep-variable-select">
+                      <option value="speed">转速</option>
+                      <option value="temperature">温度</option>
+                      <option value="radial_load">径向载荷</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span id="sweep-metric-label">指标</span>
+                    <select id="sweep-metric-select">
+                      <option value="effective_capacitance_pf">总电容</option>
+                      <option value="max_oil_film_field_mv_m">最大油膜场强</option>
+                      <option value="risk_level_numeric">风险等级</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <canvas id="sweep-chart" height="280"></canvas>
+            </section>
+
+            <section class="panel chart-panel wide-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow mini" id="sensitivity-chart-eyebrow">Sensitivity</p>
+                  <h2 id="sensitivity-chart-title">敏感性排序</h2>
+                </div>
+                <div class="chart-toolbar">
+                  <label>
+                    <span id="sensitivity-metric-label">排序指标</span>
+                    <select id="sensitivity-metric-select">
+                      <option value="effective_capacitance_pf">总电容</option>
+                      <option value="max_oil_film_field">最大油膜场强</option>
+                      <option value="risk_level">风险等级</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <canvas id="sensitivity-chart" height="320"></canvas>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow mini" id="details-eyebrow">Path Detail</p>
+                <h2 id="details-title">单球明细</h2>
+              </div>
+              <p class="summary-note" id="details-note">
+                每条路径都按内圈油膜、陶瓷球本体、外圈油膜的串联网络求解。
+              </p>
+            </div>
+            <div id="detail-sections"></div>
+          </section>
+
+          <footer class="panel footer-panel">
+            <div class="footer-copy">
+              <strong id="footer-version">Model v2.0.0</strong>
+              <p id="footer-note">Pure capacitive impedance model without leakage resistance or conductive oil-film branches.</p>
+            </div>
+          </footer>
         </section>
       </section>
     </main>
