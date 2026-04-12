@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: bearing-hybrid-ceramic-capacitance-web
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --config gunicorn.conf.py
+    healthCheckPath: /healthz
+    autoDeploy: true
