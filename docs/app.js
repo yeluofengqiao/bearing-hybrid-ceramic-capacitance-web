@@ -1,4 +1,4 @@
-const MODEL_URL = "https://raw.githubusercontent.com/yeluofengqiao/bearing-hybrid-ceramic-capacitance-web/main/hybrid_bearing_capacitance.py";
+const MODEL_URL = "./hybrid_bearing_capacitance.py";
 const INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.27.5/full/";
 
 const BRIDGE_CODE = String.raw`
@@ -125,11 +125,16 @@ async function ensureRuntime() {
   setStatus("加载轴承模型...");
   const modelSource = await fetch(MODEL_URL).then((response) => {
     if (!response.ok) {
-      throw new Error("无法从 GitHub 读取 Python 模型文件。");
+      throw new Error("无法读取网页内置的 Python 模型文件。");
     }
     return response.text();
   });
-  pyodideRuntime.runPython(modelSource);
+  pyodideRuntime.FS.writeFile("hybrid_bearing_capacitance.py", modelSource);
+  await pyodideRuntime.runPythonAsync(`
+import importlib
+import hybrid_bearing_capacitance
+importlib.reload(hybrid_bearing_capacitance)
+`);
   pyodideRuntime.runPython(BRIDGE_CODE);
   setStatus("模型已就绪");
   return pyodideRuntime;
