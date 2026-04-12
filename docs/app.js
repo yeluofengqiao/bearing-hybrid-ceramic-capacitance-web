@@ -1202,9 +1202,19 @@ function voltageChartConfig(result) {
     segmentLabel("ceramic_ball"),
     segmentLabel("outer_oil_film")
   ];
+  const paletteA = [
+    "rgba(49, 104, 154, 0.82)",
+    "rgba(196, 109, 45, 0.82)",
+    "rgba(15, 109, 117, 0.82)"
+  ];
+  const paletteB = [
+    "rgba(49, 104, 154, 0.52)",
+    "rgba(196, 109, 45, 0.52)",
+    "rgba(15, 109, 117, 0.52)"
+  ];
   if (state.mode === "compare") {
     return {
-      type: "bar",
+      type: "pie",
       data: {
         labels,
         datasets: [
@@ -1215,7 +1225,9 @@ function voltageChartConfig(result) {
               result.case_a.summary.mean_ceramic_voltage_ratio * 100,
               result.case_a.summary.mean_outer_voltage_ratio * 100
             ],
-            backgroundColor: "rgba(15, 109, 117, 0.75)"
+            backgroundColor: paletteA,
+            borderColor: "#fff7ef",
+            borderWidth: 2
           },
           {
             label: "Case B",
@@ -1224,19 +1236,30 @@ function voltageChartConfig(result) {
               result.case_b.summary.mean_ceramic_voltage_ratio * 100,
               result.case_b.summary.mean_outer_voltage_ratio * 100
             ],
-            backgroundColor: "rgba(196, 109, 45, 0.75)"
+            backgroundColor: paletteB,
+            borderColor: "#fff7ef",
+            borderWidth: 2
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: { y: { title: { display: true, text: t("voltageYAxis") } } }
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.dataset.label} · ${context.label}: ${formatNumber(context.parsed, 2)}%`;
+              }
+            }
+          }
+        }
       }
     };
   }
   return {
-    type: "bar",
+    type: "pie",
     data: {
       labels,
       datasets: [
@@ -1247,18 +1270,25 @@ function voltageChartConfig(result) {
             result.summary.mean_ceramic_voltage_ratio * 100,
             result.summary.mean_outer_voltage_ratio * 100
           ],
-          backgroundColor: [
-            "rgba(49, 104, 154, 0.75)",
-            "rgba(196, 109, 45, 0.75)",
-            "rgba(15, 109, 117, 0.75)"
-          ]
+          backgroundColor: paletteA,
+          borderColor: "#fff7ef",
+          borderWidth: 2
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      scales: { y: { title: { display: true, text: t("voltageYAxis") } } }
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              return `${context.label}: ${formatNumber(context.parsed, 2)}%`;
+            }
+          }
+        }
+      }
     }
   };
 }
@@ -1271,16 +1301,38 @@ function fieldChartConfig(result) {
   ];
   const summaryA = state.mode === "compare" ? result.case_a.summary : result.summary;
   const summaryB = state.mode === "compare" ? result.case_b.summary : null;
+  const paletteA = [
+    "rgba(49, 104, 154, 0.82)",
+    "rgba(196, 109, 45, 0.82)",
+    "rgba(15, 109, 117, 0.82)"
+  ];
+  const paletteB = [
+    "rgba(49, 104, 154, 0.52)",
+    "rgba(196, 109, 45, 0.52)",
+    "rgba(15, 109, 117, 0.52)"
+  ];
 
   const baseOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    scales: { y: { title: { display: true, text: t("fieldYAxis") } } }
+    plugins: {
+      legend: { position: "bottom" },
+      tooltip: {
+        callbacks: {
+          label(context) {
+            return `${context.dataset.label ? `${context.dataset.label} · ` : ""}${context.label}: ${formatFieldValue(
+              context.parsed,
+              3
+            )}`;
+          }
+        }
+      }
+    }
   };
 
   if (summaryB) {
     return {
-      type: "bar",
+      type: "pie",
       data: {
         labels,
         datasets: [
@@ -1291,7 +1343,9 @@ function fieldChartConfig(result) {
               summaryA.max_ceramic_equivalent_field_mv_m,
               summaryA.max_outer_field_mv_m
             ],
-            backgroundColor: "rgba(15, 109, 117, 0.75)"
+            backgroundColor: paletteA,
+            borderColor: "#fff7ef",
+            borderWidth: 2
           },
           {
             label: "Case B",
@@ -1300,7 +1354,9 @@ function fieldChartConfig(result) {
               summaryB.max_ceramic_equivalent_field_mv_m,
               summaryB.max_outer_field_mv_m
             ],
-            backgroundColor: "rgba(196, 109, 45, 0.75)"
+            backgroundColor: paletteB,
+            borderColor: "#fff7ef",
+            borderWidth: 2
           }
         ]
       },
@@ -1309,7 +1365,7 @@ function fieldChartConfig(result) {
   }
 
   return {
-    type: "bar",
+    type: "pie",
     data: {
       labels,
       datasets: [
@@ -1320,11 +1376,9 @@ function fieldChartConfig(result) {
             summaryA.max_ceramic_equivalent_field_mv_m,
             summaryA.max_outer_field_mv_m
           ],
-          backgroundColor: [
-            "rgba(49, 104, 154, 0.75)",
-            "rgba(196, 109, 45, 0.75)",
-            "rgba(15, 109, 117, 0.75)"
-          ]
+          backgroundColor: paletteA,
+          borderColor: "#fff7ef",
+          borderWidth: 2
         }
       ]
     },
