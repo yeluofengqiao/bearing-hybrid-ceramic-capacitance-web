@@ -5,15 +5,15 @@ from dataclasses import asdict, dataclass, replace
 from typing import Any, Mapping
 
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import least_squares
 from scipy.special import ellipe, ellipk
 
 
 EPSILON_0 = 8.8541878128e-12
 REFERENCE_TEMPERATURE_C = 25.0
-MODEL_VERSION = "2.0.0"
+MODEL_VERSION = "2.1.0"
 
-RISK_LEVEL_ORDER = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+RISK_LEVEL_ORDER = {"not_applicable": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 SEGMENT_LABELS = {
     "inner_oil_film": "Inner Oil Film",
     "ceramic_ball": "Ceramic Ball",
@@ -49,6 +49,19 @@ SENSITIVITY_TARGETS = (
 )
 
 
+def _require_finite(values: Mapping[str, float]) -> None:
+    for name, value in values.items():
+        if not math.isfinite(float(value)):
+            raise ValueError(f"{name} must be finite.")
+
+
+def _strict_integer(value: Any, name: str) -> int:
+    numeric = float(value)
+    if not math.isfinite(numeric) or not numeric.is_integer():
+        raise ValueError(f"{name} must be an integer.")
+    return int(numeric)
+
+
 @dataclass(frozen=True, slots=True)
 class BearingGeometry:
     bearing_code: str = "6208"
@@ -76,6 +89,14 @@ class BearingGeometry:
             "ceramic_youngs_modulus_mpa": self.ceramic_youngs_modulus_mpa,
             "ceramic_relative_permittivity": self.ceramic_relative_permittivity,
         }
+        _require_finite(
+            {
+                **positive_fields,
+                "radial_clearance_mm": self.radial_clearance_mm,
+                "ring_poisson_ratio": self.ring_poisson_ratio,
+                "ceramic_poisson_ratio": self.ceramic_poisson_ratio,
+            }
+        )
         for name, value in positive_fields.items():
             if value <= 0:
                 raise ValueError(f"{name} must be greater than 0.")
@@ -98,12 +119,24 @@ class BearingGeometry:
         return self.ball_diameter_mm * (self.inner_curvature_coeff + self.outer_curvature_coeff - 1.0)
 
     @property
-    def equivalent_modulus_mpa(self) -> float:
+    def hertz_reduced_modulus_mpa(self) -> float:
         denominator = (
             (1.0 - self.ring_poisson_ratio**2) / self.ring_youngs_modulus_mpa
             + (1.0 - self.ceramic_poisson_ratio**2) / self.ceramic_youngs_modulus_mpa
         )
-        return 2.0 / denominator
+        return 1.0 / denominator
+
+    @property
+    def ehl_modulus_mpa(self) -> float:
+        """Hamrock-Dowson modulus convention, equal to 2 times Hertz E*."""
+
+        return 2.0 * self.hertz_reduced_modulus_mpa
+
+    @property
+    def equivalent_modulus_mpa(self) -> float:
+        """Backward-compatible alias for the two-body Hertz reduced modulus."""
+
+        return self.hertz_reduced_modulus_mpa
 
     def operating_clearance_mm(self, fit_clearance_loss_um: float, thermal_clearance_loss_um: float) -> float:
         return self.radial_clearance_mm - (fit_clearance_loss_um + thermal_clearance_loss_um) / 1000.0
@@ -130,9 +163,12 @@ class LubricantProperties:
             "thermal_expansion_coeff_per_c": self.thermal_expansion_coeff_per_c,
             "bulk_modulus_pa": self.bulk_modulus_pa,
         }
+        _require_finite(positive_fields)
         for name, value in positive_fields.items():
             if value <= 0:
                 raise ValueError(f"{name} must be greater than 0.")
+        if self.viscosity_40_cst <= self.viscosity_100_cst:
+            raise ValueError("viscosity_40_cst must be greater than viscosity_100_cst.")
         if self.lubrication_state not in LUBRICATION_STATE_FACTORS:
             raise ValueError(f"Unsupported lubrication_state: {self.lubrication_state}")
 
@@ -175,6 +211,7 @@ class ParasiticCapacitances:
     mounting_capacitance_pf: float = 0.10
 
     def validate(self) -> None:
+        _require_finite(asdict(self))
         for name, value in asdict(self).items():
             if value < 0:
                 raise ValueError(f"{name} cannot be negative.")
@@ -198,6 +235,7 @@ class OperatingConditions:
     thermal_clearance_loss_um: float = 0.0
 
     def validate(self) -> None:
+        _require_finite(asdict(self))
         if self.speed_rpm <= 0:
             raise ValueError("speed_rpm must be greater than 0.")
         if self.radial_load_n < 0:
@@ -230,6 +268,7 @@ class SweepSettings:
     condition_point_count: int = 41
 
     def validate(self) -> None:
+        _require_finite(asdict(self))
         if self.frequency_start_hz <= 0 or self.frequency_end_hz <= self.frequency_start_hz:
             raise ValueError("Frequency sweep range is invalid.")
         if self.speed_start_rpm <= 0 or self.speed_end_rpm <= self.speed_start_rpm:
@@ -251,6 +290,8 @@ class BallPathDetail:
     outer_hertz_area_mm2: float
     inner_film_thickness_um: float
     outer_film_thickness_um: float
+    inner_central_film_thickness_um: float
+    outer_central_film_thickness_um: float
     inner_effective_gap_um: float
     outer_effective_gap_um: float
     inner_contact_capacitance_pf: float
@@ -305,8 +346,12 @@ class BallPathDetail:
 
 
 def astm_d341_kinematic_viscosity_cst(nu_40_cst: float, nu_100_cst: float, temperature_c: float) -> float:
+    if not all(math.isfinite(float(value)) for value in (nu_40_cst, nu_100_cst, temperature_c)):
+        raise ValueError("ASTM D341 inputs must be finite.")
     if nu_40_cst <= 0 or nu_100_cst <= 0:
         raise ValueError("ASTM D341 requires both viscosity inputs to be positive.")
+    if nu_40_cst <= nu_100_cst:
+        raise ValueError("ASTM D341 requires viscosity at 40 C to exceed viscosity at 100 C.")
 
     temperature_k = temperature_c + 273.15
     if temperature_k <= 0:
@@ -378,7 +423,17 @@ class HybridBearingCapacitanceModel:
                 - cos_tau
             )
 
-        eccentricity = float(fsolve(objective, 0.9)[0])
+        solution = least_squares(
+            lambda value: [objective(float(value[0]))],
+            [0.85],
+            bounds=([1e-5], [0.99999]),
+            xtol=1e-12,
+            ftol=1e-12,
+            gtol=1e-12,
+        )
+        if not solution.success or abs(objective(float(solution.x[0]))) > 1e-8:
+            raise ValueError("Contact ellipse parameter solver did not converge.")
+        eccentricity = float(solution.x[0])
         k_val = float(ellipk(eccentricity**2))
         e_val = float(ellipe(eccentricity**2))
         ellipticity = float(1.0 / math.sqrt(1.0 - eccentricity**2))
@@ -395,12 +450,14 @@ class HybridBearingCapacitanceModel:
             rho22 = 2.0 / (g.pitch_diameter_mm + g.ball_diameter_mm)
 
         sum_rho = rho11 + rho12 + rho21 + rho22
+        if sum_rho <= 0.0:
+            raise ValueError("Invalid contact curvature combination.")
         diff_rho = (rho11 - rho12) + (rho21 - rho22)
         cos_tau = abs(diff_rho) / sum_rho
         k_el, e_el, ellipticity = self._solve_elliptical_param(cos_tau)
 
         q_test = 1.0
-        term_common = (3.0 * q_test) / (2.0 * sum_rho * g.equivalent_modulus_mpa)
+        term_common = (3.0 * q_test) / (2.0 * sum_rho * g.hertz_reduced_modulus_mpa)
         a_star = (2.0 * (ellipticity**2) * e_el / math.pi) ** (1.0 / 3.0)
         delta_star = (2.0 * k_el) / (math.pi * a_star)
         delta_1n = delta_star * (sum_rho / 2.0) * (term_common ** (2.0 / 3.0))
@@ -412,7 +469,7 @@ class HybridBearingCapacitanceModel:
         if load_n <= 1e-9:
             return 0.0, 0.0, 0.0, 0.0
 
-        term_common = (3.0 * load_n) / (2.0 * sum_rho * self.geometry.equivalent_modulus_mpa)
+        term_common = (3.0 * load_n) / (2.0 * sum_rho * self.geometry.hertz_reduced_modulus_mpa)
         a_star = (2.0 * (ellipticity**2) * e_val / math.pi) ** (1.0 / 3.0)
         b_star = (2.0 * e_val / (math.pi * ellipticity)) ** (1.0 / 3.0)
         semi_major_mm = a_star * (term_common ** (1.0 / 3.0))
@@ -421,24 +478,39 @@ class HybridBearingCapacitanceModel:
         max_pressure_mpa = (1.5 * load_n) / area_mm2
         return area_mm2, semi_major_mm, semi_minor_mm, max_pressure_mpa
 
-    def _central_film_thickness_mm(
+    def _film_thicknesses_mm(
         self,
         load_n: float,
         equivalent_radius_m: float,
         entrainment_speed_m_s: float,
         ellipticity: float,
         dynamic_viscosity_pa_s: float,
-    ) -> float:
+    ) -> tuple[float, float]:
         if load_n <= 1e-9 or equivalent_radius_m <= 0.0 or entrainment_speed_m_s <= 0.0:
-            return 0.0
+            return 0.0, 0.0
 
-        e_prime_pa = self.geometry.equivalent_modulus_mpa * 1e6
+        e_prime_pa = self.geometry.ehl_modulus_mpa * 1e6
         u_dimless = (dynamic_viscosity_pa_s * entrainment_speed_m_s) / (e_prime_pa * equivalent_radius_m)
         g_dimless = self.lubricant.pressure_viscosity_coeff_pa_inv * e_prime_pa
         w_dimless = load_n / (e_prime_pa * equivalent_radius_m**2)
-        k_effect = 1.0 - 0.61 * math.exp(-0.73 * ellipticity)
-        h_dimless = 2.69 * (u_dimless**0.67) * (g_dimless**0.53) * (w_dimless**-0.067) * k_effect
-        return h_dimless * equivalent_radius_m * 1000.0
+        central_factor = 1.0 - 0.61 * math.exp(-0.73 * ellipticity)
+        minimum_factor = 1.0 - math.exp(-0.68 * ellipticity)
+        central_dimensionless = (
+            2.69
+            * (u_dimless**0.67)
+            * (g_dimless**0.53)
+            * (w_dimless**-0.067)
+            * central_factor
+        )
+        minimum_dimensionless = (
+            3.63
+            * (u_dimless**0.68)
+            * (g_dimless**0.49)
+            * (w_dimless**-0.073)
+            * minimum_factor
+        )
+        scale_mm = equivalent_radius_m * 1000.0
+        return central_dimensionless * scale_mm, minimum_dimensionless * scale_mm
 
     def _entrainment_speeds(self, speed_rpm: float) -> tuple[float, float]:
         ratio = self.geometry.ball_diameter_mm / self.geometry.pitch_diameter_mm
@@ -456,6 +528,9 @@ class HybridBearingCapacitanceModel:
     ) -> tuple[float, float, bool]:
         g = self.geometry
         angles = np.linspace(0.0, 2.0 * math.pi, g.rolling_elements, endpoint=False)
+
+        if radial_load_n <= 1e-12 and axial_load_n <= 1e-12:
+            return 0.0, 0.0, True
 
         def equilibrium_equations(vars_um: np.ndarray) -> list[float]:
             radial_deflection_mm = vars_um[0] * 1e-3
@@ -478,20 +553,29 @@ class HybridBearingCapacitanceModel:
             guesses.append(np.array(initial_guess_um))
         guesses.extend([np.array([30.0, 0.0]), np.array([80.0, 10.0]), np.array([150.0, 40.0])])
 
-        best_solution = (0.0, 0.0, False)
-        best_residual = float("inf")
+        target_scale = max(1.0, math.hypot(radial_load_n, axial_load_n))
+        best_solution = None
 
         for guess in guesses:
-            solution, _, ier, _ = fsolve(equilibrium_equations, guess, full_output=True, xtol=1e-9, maxfev=400)
-            residual = equilibrium_equations(solution)
-            residual_norm = float(abs(residual[0]) + abs(residual[1]))
-            if residual_norm < best_residual:
-                best_solution = (float(solution[0]), float(solution[1]), ier == 1)
-                best_residual = residual_norm
-            if ier == 1 and residual_norm < 1e-4:
-                return float(solution[0]), float(solution[1]), True
+            solution = least_squares(
+                lambda values: np.asarray(equilibrium_equations(values)) / target_scale,
+                guess,
+                bounds=(np.zeros(2), np.full(2, np.inf)),
+                x_scale=np.array([50.0, 50.0]),
+                xtol=1e-11,
+                ftol=1e-11,
+                gtol=1e-11,
+                max_nfev=3000,
+            )
+            if best_solution is None or solution.cost < best_solution.cost:
+                best_solution = solution
 
-        return best_solution
+        residual = np.asarray(equilibrium_equations(best_solution.x), dtype=float)
+        converged = bool(
+            best_solution.success
+            and np.max(np.abs(residual / target_scale)) < 1e-5
+        )
+        return float(best_solution.x[0]), float(best_solution.x[1]), converged
 
     def _single_case(
         self,
@@ -565,14 +649,14 @@ class HybridBearingCapacitanceModel:
             inner_area_mm2, _, _, inner_pressure_mpa = self._hertz_contact(load_n, inner_sum_rho, inner_ellipticity, inner_e_val)
             outer_area_mm2, _, _, outer_pressure_mpa = self._hertz_contact(load_n, outer_sum_rho, outer_ellipticity, outer_e_val)
 
-            inner_film_mm = self._central_film_thickness_mm(
+            inner_central_film_mm, inner_minimum_film_mm = self._film_thicknesses_mm(
                 load_n,
                 inner_rx_m,
                 entrainment_inner_m_s,
                 inner_ellipticity,
                 inner_dynamic_viscosity,
             )
-            outer_film_mm = self._central_film_thickness_mm(
+            outer_central_film_mm, outer_minimum_film_mm = self._film_thicknesses_mm(
                 load_n,
                 outer_rx_m,
                 entrainment_outer_m_s,
@@ -580,10 +664,16 @@ class HybridBearingCapacitanceModel:
                 outer_dynamic_viscosity,
             )
 
-            inner_lambda = (inner_film_mm * 1000.0) / roughness_um if roughness_um > 0 else 0.0
-            outer_lambda = (outer_film_mm * 1000.0) / roughness_um if roughness_um > 0 else 0.0
-            inner_effective_gap_m = inner_film_mm * 1e-3 * roughness_gap_factor(inner_lambda)
-            outer_effective_gap_m = outer_film_mm * 1e-3 * roughness_gap_factor(outer_lambda)
+            inner_lambda = (inner_minimum_film_mm * 1000.0) / roughness_um if roughness_um > 0 else 0.0
+            outer_lambda = (outer_minimum_film_mm * 1000.0) / roughness_um if roughness_um > 0 else 0.0
+            inner_gap_factor = roughness_gap_factor(inner_lambda)
+            outer_gap_factor = roughness_gap_factor(outer_lambda)
+            # Central film is retained for the lumped parallel-plate capacitance;
+            # minimum film controls lambda and the peak local electric field.
+            inner_effective_gap_m = inner_central_film_mm * 1e-3 * inner_gap_factor
+            outer_effective_gap_m = outer_central_film_mm * 1e-3 * outer_gap_factor
+            inner_field_gap_m = inner_minimum_film_mm * 1e-3 * inner_gap_factor
+            outer_field_gap_m = outer_minimum_film_mm * 1e-3 * outer_gap_factor
 
             inner_area_m2 = inner_area_mm2 * 1e-6
             outer_area_m2 = outer_area_mm2 * 1e-6
@@ -615,8 +705,8 @@ class HybridBearingCapacitanceModel:
             ceramic_voltage_v = conditions.applied_voltage_v * ceramic_voltage_ratio
             outer_voltage_v = conditions.applied_voltage_v * outer_voltage_ratio
 
-            inner_field_mv_m = 0.0 if inner_effective_gap_m <= 0.0 else inner_voltage_v / inner_effective_gap_m / 1e6
-            outer_field_mv_m = 0.0 if outer_effective_gap_m <= 0.0 else outer_voltage_v / outer_effective_gap_m / 1e6
+            inner_field_mv_m = 0.0 if inner_field_gap_m <= 0.0 else inner_voltage_v / inner_field_gap_m / 1e6
+            outer_field_mv_m = 0.0 if outer_field_gap_m <= 0.0 else outer_voltage_v / outer_field_gap_m / 1e6
             ceramic_equivalent_thickness_m = 0.0
             if effective_area_m2 > 0.0 and ceramic_cap_pf > 0.0:
                 ceramic_equivalent_thickness_m = (
@@ -643,8 +733,10 @@ class HybridBearingCapacitanceModel:
                     contact_angle_deg=contact_angle_deg,
                     inner_hertz_area_mm2=inner_area_mm2,
                     outer_hertz_area_mm2=outer_area_mm2,
-                    inner_film_thickness_um=inner_film_mm * 1000.0,
-                    outer_film_thickness_um=outer_film_mm * 1000.0,
+                    inner_film_thickness_um=inner_minimum_film_mm * 1000.0,
+                    outer_film_thickness_um=outer_minimum_film_mm * 1000.0,
+                    inner_central_film_thickness_um=inner_central_film_mm * 1000.0,
+                    outer_central_film_thickness_um=outer_central_film_mm * 1000.0,
                     inner_effective_gap_um=inner_effective_gap_m * 1e6,
                     outer_effective_gap_um=outer_effective_gap_m * 1e6,
                     inner_contact_capacitance_pf=inner_cap_pf,
@@ -698,7 +790,24 @@ class HybridBearingCapacitanceModel:
             [detail.inner_lambda for detail in active_details] + [detail.outer_lambda for detail in active_details],
             default=0.0,
         )
-        risk_level = self._classify_risk(max_oil_film_field_mv_m, min_lambda)
+        risk_level = (
+            self._classify_risk(max_oil_film_field_mv_m, min_lambda)
+            if active_details
+            else "not_applicable"
+        )
+        risk_trigger_reason_code = (
+            self._risk_reason_code(max_oil_film_field_mv_m, min_lambda)
+            if active_details
+            else "no_loaded_path"
+        )
+        if not active_details:
+            model_validity_code = "no_loaded_path"
+        elif min_lambda < 1.0:
+            model_validity_code = "boundary_lubrication_capacitive_model_invalid"
+        elif min_lambda < 3.0:
+            model_validity_code = "mixed_lubrication_screening_only"
+        else:
+            model_validity_code = "full_film_capacitive_screening"
         risk_segment_code = self._risk_segment(active_details)
         parasitic_mode = "intrinsic_dominant" if intrinsic_total_pf >= parasitics.total_pf else "parasitic_dominant"
 
@@ -726,6 +835,14 @@ class HybridBearingCapacitanceModel:
                 "max_ball_load_n": max((detail.load_n for detail in active_details), default=0.0),
                 "min_inner_film_thickness_um": min((detail.inner_film_thickness_um for detail in active_details), default=0.0),
                 "min_outer_film_thickness_um": min((detail.outer_film_thickness_um for detail in active_details), default=0.0),
+                "min_inner_central_film_thickness_um": min(
+                    (detail.inner_central_film_thickness_um for detail in active_details),
+                    default=0.0,
+                ),
+                "min_outer_central_film_thickness_um": min(
+                    (detail.outer_central_film_thickness_um for detail in active_details),
+                    default=0.0,
+                ),
                 "min_inner_lambda": min((detail.inner_lambda for detail in active_details), default=0.0),
                 "min_outer_lambda": min((detail.outer_lambda for detail in active_details), default=0.0),
                 "max_inner_field_mv_m": max((detail.inner_field_mv_m for detail in active_details), default=0.0),
@@ -747,12 +864,15 @@ class HybridBearingCapacitanceModel:
                 "risk_level_numeric": risk_level_numeric(risk_level),
                 "risk_segment_code": risk_segment_code,
                 "risk_segment_label": SEGMENT_LABELS.get(risk_segment_code, SEGMENT_LABELS["no_loaded_path"]),
-                "risk_trigger_reason_code": self._risk_reason_code(max_oil_film_field_mv_m, min_lambda),
+                "risk_trigger_reason_code": risk_trigger_reason_code,
                 "parasitic_mode": parasitic_mode,
                 "operating_clearance_mm": operating_clearance_mm,
-                "equivalent_modulus_gpa": self.geometry.equivalent_modulus_mpa / 1000.0,
+                "equivalent_modulus_gpa": self.geometry.hertz_reduced_modulus_mpa / 1000.0,
+                "hertz_reduced_modulus_gpa": self.geometry.hertz_reduced_modulus_mpa / 1000.0,
+                "ehl_modulus_gpa": self.geometry.ehl_modulus_mpa / 1000.0,
                 "solver_converged": solver_converged,
                 "roughness_um": roughness_um,
+                "model_validity_code": model_validity_code,
             },
             "details": [detail.to_dict() for detail in active_details],
             "equilibrium_guess_um": [radial_um, axial_um],
@@ -1066,6 +1186,7 @@ class HybridBearingCapacitanceModel:
             "parasitic_mode": summary["parasitic_mode"],
             "risk_level": summary["risk_level"],
             "risk_trigger_reason_code": summary["risk_trigger_reason_code"],
+            "model_validity_code": summary["model_validity_code"],
         }
 
 
@@ -1082,7 +1203,7 @@ def build_case_inputs(
         bearing_code=str(merged.get("bearing_code", "6208")),
         ball_diameter_mm=float(merged.get("ball_diameter_mm", 11.906)),
         pitch_diameter_mm=float(merged.get("pitch_diameter_mm", 60.0)),
-        rolling_elements=int(float(merged.get("rolling_elements", 9))),
+        rolling_elements=_strict_integer(merged.get("rolling_elements", 9), "rolling_elements"),
         radial_clearance_mm=float(merged.get("radial_clearance_mm", 0.015)),
         inner_curvature_coeff=float(merged.get("inner_curvature_coeff", 0.52)),
         outer_curvature_coeff=float(merged.get("outer_curvature_coeff", 0.53)),
@@ -1124,14 +1245,14 @@ def build_case_inputs(
     sweep_settings = SweepSettings(
         frequency_start_hz=float(merged.get("frequency_start_hz", 1000.0)),
         frequency_end_hz=float(merged.get("frequency_end_hz", 1.0e7)),
-        frequency_point_count=int(float(merged.get("frequency_point_count", 121))),
+        frequency_point_count=_strict_integer(merged.get("frequency_point_count", 121), "frequency_point_count"),
         speed_start_rpm=float(merged.get("speed_start_rpm", 500.0)),
         speed_end_rpm=float(merged.get("speed_end_rpm", 12000.0)),
         temperature_start_c=float(merged.get("temperature_start_c", 20.0)),
         temperature_end_c=float(merged.get("temperature_end_c", 120.0)),
         radial_load_start_n=float(merged.get("radial_load_start_n", 500.0)),
         radial_load_end_n=float(merged.get("radial_load_end_n", 5000.0)),
-        condition_point_count=int(float(merged.get("condition_point_count", 41))),
+        condition_point_count=_strict_integer(merged.get("condition_point_count", 41), "condition_point_count"),
     )
 
     geometry.validate()
