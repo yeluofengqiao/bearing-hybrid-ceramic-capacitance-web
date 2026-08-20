@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+import math
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from hybrid_bearing_capacitance import analyze_case_payload, compare_case_payloads
+from hybrid_bearing_capacitance import (
+    BearingGeometry,
+    analyze_case_payload,
+    compare_case_payloads,
+)
 
 
 class HybridBearingCapacitanceModelTests(unittest.TestCase):
     def test_default_case_returns_positive_capacitance_and_sweeps(self) -> None:
         result = analyze_case_payload({"bearing_code": "6208"})
 
-        self.assertEqual(result["version"], "2.0.0")
+        self.assertEqual(result["version"], "2.1.0")
         self.assertGreater(result["summary"]["intrinsic_capacitance_pf"], 0.0)
         self.assertGreater(result["summary"]["effective_capacitance_pf"], result["summary"]["intrinsic_capacitance_pf"])
         self.assertGreater(result["summary"]["loaded_ball_count"], 0)
@@ -23,6 +28,57 @@ class HybridBearingCapacitanceModelTests(unittest.TestCase):
         self.assertEqual(len(result["condition_sweeps"]["temperature"]["x"]), 41)
         self.assertEqual(len(result["condition_sweeps"]["radial_load"]["x"]), 41)
         self.assertIn("effective_capacitance_pf", result["sensitivity"])
+
+    def test_hertz_and_ehl_modulus_conventions_are_kept_separate(self) -> None:
+        geometry = BearingGeometry()
+
+        self.assertAlmostEqual(
+            geometry.ehl_modulus_mpa,
+            2.0 * geometry.hertz_reduced_modulus_mpa,
+        )
+
+    def test_reported_minimum_film_is_below_central_film(self) -> None:
+        result = analyze_case_payload({"bearing_code": "6208"}, include_extended=False)
+        detail = result["details"][0]
+
+        self.assertLess(
+            detail["inner_film_thickness_um"],
+            detail["inner_central_film_thickness_um"],
+        )
+        self.assertLess(
+            detail["outer_film_thickness_um"],
+            detail["outer_central_film_thickness_um"],
+        )
+
+    def test_mixed_lubrication_is_marked_as_screening_only(self) -> None:
+        result = analyze_case_payload(
+            {"bearing_code": "6208", "composite_roughness_um": 0.2},
+            include_extended=False,
+        )
+        self.assertIn(
+            result["summary"]["model_validity_code"],
+            {
+                "mixed_lubrication_screening_only",
+                "boundary_lubrication_capacitive_model_invalid",
+            },
+        )
+
+    def test_zero_load_returns_no_loaded_path_instead_of_critical_risk(self) -> None:
+        result = analyze_case_payload(
+            {"bearing_code": "6208", "radial_load_n": 0.0, "axial_load_n": 0.0},
+            include_extended=False,
+        )
+
+        self.assertEqual(result["summary"]["loaded_ball_count"], 0)
+        self.assertEqual(result["summary"]["risk_level"], "not_applicable")
+        self.assertEqual(result["summary"]["risk_trigger_reason_code"], "no_loaded_path")
+        self.assertEqual(result["summary"]["model_validity_code"], "no_loaded_path")
+
+    def test_non_finite_and_fractional_count_inputs_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            analyze_case_payload({"bearing_code": "6208", "radial_load_n": math.nan})
+        with self.assertRaises(ValueError):
+            analyze_case_payload({"bearing_code": "6208", "rolling_elements": 8.5})
 
     def test_lightweight_case_omits_sweeps_and_sensitivity(self) -> None:
         result = analyze_case_payload({"bearing_code": "6208"}, include_extended=False)
@@ -110,7 +166,7 @@ class HybridBearingCapacitanceModelTests(unittest.TestCase):
         severe = analyze_case_payload({"bearing_code": "6208", "composite_roughness_um": 0.5})
 
         self.assertEqual(smooth["summary"]["risk_level"], "low")
-        self.assertEqual(medium["summary"]["risk_level"], "medium")
+        self.assertEqual(medium["summary"]["risk_level"], "high")
         self.assertEqual(severe["summary"]["risk_level"], "critical")
 
     def test_compare_payloads_return_deltas(self) -> None:

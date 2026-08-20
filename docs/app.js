@@ -273,8 +273,8 @@ const SEGMENT_TEXT = {
 };
 
 const RISK_TEXT = {
-  "zh-CN": { low: "低", medium: "中", high: "高", critical: "临界" },
-  "en-US": { low: "Low", medium: "Medium", high: "High", critical: "Critical" }
+  "zh-CN": { not_applicable: "不适用", low: "低", medium: "中", high: "高", critical: "临界" },
+  "en-US": { not_applicable: "Not applicable", low: "Low", medium: "Medium", high: "High", critical: "Critical" }
 };
 
 const REASON_TEXT = {
@@ -285,7 +285,8 @@ const REASON_TEXT = {
     field_above_10: TEXT["zh-CN"].fieldRiskReasonAbove10,
     lambda_below_3: TEXT["zh-CN"].fieldRiskReasonBelow3,
     lambda_below_1_5: TEXT["zh-CN"].fieldRiskReasonBelow15,
-    lambda_below_1: TEXT["zh-CN"].fieldRiskReasonBelow1
+    lambda_below_1: TEXT["zh-CN"].fieldRiskReasonBelow1,
+    no_loaded_path: "无受载油膜通路，纯电容风险模型不适用。"
   },
   "en-US": {
     stable_ehl: TEXT["en-US"].fieldRiskReasonStable,
@@ -294,7 +295,8 @@ const REASON_TEXT = {
     field_above_10: TEXT["en-US"].fieldRiskReasonAbove10,
     lambda_below_3: TEXT["en-US"].fieldRiskReasonBelow3,
     lambda_below_1_5: TEXT["en-US"].fieldRiskReasonBelow15,
-    lambda_below_1: TEXT["en-US"].fieldRiskReasonBelow1
+    lambda_below_1: TEXT["en-US"].fieldRiskReasonBelow1,
+    no_loaded_path: "No loaded oil-film path; the pure-capacitance risk model is not applicable."
   }
 };
 
